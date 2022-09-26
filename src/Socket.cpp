@@ -4,18 +4,16 @@ Socket::Socket()
 {
 }
 
-Socket::Socket(Server *server, std::string host, uint32_t port):
+Socket::Socket(std::string host, uint32_t port):
     _host(host),
-    _port(port),
-    _server(server)
+    _port(port)
 {
 }
 
-Socket::Socket(Server *server, std::string host, uint32_t port, int fd):
+Socket::Socket(std::string host, uint32_t port, int fd):
     _host(host),
     _port(port),
-    _fd(fd),
-    _server(server)
+    _fd(fd)
 {
 }
 
@@ -39,13 +37,22 @@ ListenOperation *Socket::listen(int backlog)
     serv_addr.sin_addr = host;
     serv_addr.sin_port = htons(_port);
 
-    if (bind(_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) 
+    if (bind(_fd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0)
+    {
+        if (errno == EADDRINUSE)
+            throw AddressAlreadyInUseException(_port);
         throw std::runtime_error("ERROR on binding");
+    }
     printf("Listening on %s:%u\n", _host.c_str(), _port);
     ::listen(_fd, backlog);
     printf("FD: %d\n", _fd);
-    return new ListenOperation(_server, this);
+    return new ListenOperation(this);
 }
+
+ void            Socket::add_server(Server * server)
+ {
+    _servers.push_back(server);
+ }
 
 std::string Socket::get_host(void)
 {

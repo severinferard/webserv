@@ -18,25 +18,29 @@
 #include "./Operation.hpp"
 #include "./Socket.hpp"
 #include "Server.hpp"
+#include "epoll.h"
 
 class WebservCore {
 
 private:
-    std::vector<pollfd>             _pollfds;
     std::map<int, OperationBase *>  _operations;
     std::vector<Server>             _servers;
-    // int                             _epoll_fd;
+    std::vector<Socket>             _sockets;
+    int                             _epoll_fd;
 
 
-    void add_op(OperationBase *op, short events);
-    void delete_op(OperationBase *op);
+    void                            add_op(OperationBase *op, uint32_t events);
+    void                            delete_op(OperationBase *op);
+    OperationBase *                 find_op_by_fd(int fd);
+    Socket *                        find_socket_on_port(uint32_t port);
+    void                            start_listening_sockets(void);
     
 public:
     WebservCore();
     ~WebservCore();
 
-    void setup(std::vector<server_config_t> config);
-    void run(void);
+    void                            setup(std::vector<server_config_t> config);
+    void                            run(void);
     
 
 };

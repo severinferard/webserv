@@ -20,31 +20,31 @@
 class OperationBase
 {
     protected:
+        Socket *_socket;
         Server *_server;
     public:
         int type;
         int fd;
 
-        OperationBase(Server *server, int type, int fd);
+        OperationBase(Socket *socket, Server *server, int type, int fd);
         ~OperationBase();
 };
 
 class ReadRequestOperation: public OperationBase
 {
     private:
-       int  _req_fd;
+        std::string _buffer;
+        size_t _to_read;
     public:
-        ReadRequestOperation(Server *server, int req_fd);
+        ReadRequestOperation(Socket *socket, int req_fd);
         ~ReadRequestOperation();
         OperationBase *read_request(void);
 };
 
 class ListenOperation: public OperationBase
 {
-    private:
-        Socket *_socket;
     public:
-        ListenOperation(Server *server, Socket *socket);
+        ListenOperation(Socket *socket);
         ~ListenOperation();
         OperationBase *accept(void);
 

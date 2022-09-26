@@ -15,28 +15,30 @@
 
 # include "./Operation.hpp"
 # include "Server.hpp"
+# include "exceptions.hpp"
 
 class Server;
 class ListenOperation;
 
 class Socket {
+    private:
+        std::string             _host;
+        uint32_t                _port;
+        int                     _fd;
+        std::vector<Server *>   _servers;
+
     public:
         Socket();
-        Socket(Server *server, std::string host, uint32_t port);
-        Socket(Server *server, std::string host, uint32_t port, int fd);
+        Socket(std::string host, uint32_t port);
+        Socket(std::string host, uint32_t port, int fd);
         ~Socket();
 
         ListenOperation *listen(int backlog = 5);
+        void            add_server(Server * server);
 
         std::string get_host(void);
         uint32_t    get_port(void);
         int         get_fd(void);
-
-    private:
-        std::string _host;
-        uint32_t    _port;
-        int         _fd;
-        Server *    _server;
         
 };
 

@@ -2,17 +2,22 @@
 
     WebservCore::WebservCore()
     {
-
+        _epoll_fd = epoll_create(1);
+        if (_epoll_fd < 0)
+            throw std::runtime_error("Failed creating epoll fd");
     }
 
     WebservCore::~WebservCore()
     {
-
     }
 
+    /**
+     * @brief Create the virtual 'Server objects and push them to the _servers vector.
+     * 
+     * @param server_configs vector containing the configuration of each virtual server
+     */
     void WebservCore::setup(std::vector<server_config_t> server_configs)
     {
-        // Create the servers and push the server object to _servers[]
         for (std::vector<server_config_t>::iterator config = server_configs.begin(); config != server_configs.end(); config++)
         {
             Server server(*config);
@@ -21,62 +26,108 @@
 
     }
 
-    void WebservCore::run(void)
+    /**
+     * @brief Goes through the configuration of each virtual server and create the corresponding listening sockets based on the 'listen'
+     * directive. The newly created Socket objects are stored in the _sockets vector and ListeningOperation objects are added to the operation queue. 
+     */
+    void WebservCore::start_listening_sockets(void)
     {
-        // Iterate over all the servers and start listening on all their respective sockets
+        Socket *sock;
+        Socket *existing_socket;
+
         for (std::vector<Server>::iterator server = _servers.begin(); server != _servers.end(); server++)
         {
-            std::vector<Socket> socks = server->get_listening_sockets();
-            for (std::vector<Socket>::iterator sock = socks.begin(); sock < socks.end(); sock++)
+            server_config_t server_config = server->get_config();
+            for (std::vector<host_port_t>::iterator addr = server_config.listen_on.begin(); addr != server_config.listen_on.end(); addr++)
             {
-                add_op(sock->listen(), POLLIN);
-            }
-        }
-
-        int ready;
-        OperationBase *op;
-        while (true)
-        {
-            ready = poll(_pollfds.data(), _pollfds.size(), 10000);
-            std::cout << ready << " out of " <<  _pollfds.size() << std::endl;
-            for (size_t i = 0; i < _pollfds.size(); i++)
-            {
-                if (_pollfds[i].revents)
+                sock = new Socket(addr->host, addr->port);
+                sock->add_server(&(*server));
+                try
                 {
-                    op = _operations[_pollfds[i].fd];
-                    switch (op->type)
-                    {
-                    case OPERATION_LISTEN:
-                        add_op(((ListenOperation *)op)->accept(), POLLIN);
-                        break;
+                    add_op(sock->listen(), POLLIN);
+                    _sockets.push_back(*sock);
+                }
+                catch(const AddressAlreadyInUseException& e)
+                {
+                    printf("catched duplicate port\n");
                     
-                    case OPERATION_READ_REQUEST:
-                        ((ReadRequestOperation *)op)->read_request();
-                        delete_op(op);
-                        break;
-                    }
-                    break;
+                    delete sock;
+                    existing_socket = find_socket_on_port(addr->port);
+                    if (existing_socket)
+                        existing_socket->add_server(&(*server));
+                    else
+                        throw (e);
                 }
             }
         }
     }
 
-    void WebservCore::add_op(OperationBase *op, short events) {
-        pollfd pfd;
+    void WebservCore::run(void)
+    {
+        struct epoll_event  event;
+        int                 ready;
+        OperationBase       *op;
+        OperationBase       *new_op;
 
-        pfd.fd = op->fd;
-        pfd.events = events;
-        _pollfds.push_back(pfd);
+        start_listening_sockets();
+
+        while (true)
+        {
+            if (!(ready = epoll_wait(_epoll_fd, &event, 1, 10000)))
+                continue;
+            op = find_op_by_fd(event.data.fd);
+            switch (op->type)
+            {
+            case OPERATION_LISTEN:
+                add_op(((ListenOperation *)op)->accept(), POLLIN);
+                break;
+            case OPERATION_READ_REQUEST:
+                new_op = ((ReadRequestOperation *)op)->read_request();
+                if (new_op) {
+                    delete_op(op);
+                    // add_op(new_op, POLLIN);
+                }
+
+                // delete_op(op);
+                break;
+            }
+        }
+    }
+
+    void WebservCore::add_op(OperationBase *op, uint32_t events) {
+        struct epoll_event ev;
+
+        ev.events = events;
+        ev.data.fd = op->fd;
+        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, op->fd, &ev) == -1) {
+            perror("epoll_ctl: listen_sock");
+            exit(EXIT_FAILURE);
+        }
         _operations[op->fd] = op;
     }
 
     void WebservCore::delete_op(OperationBase *op) {
-        std::vector<pollfd>::iterator it = _pollfds.begin();
-        while (it != _pollfds.end()) {
-            if (it->fd == op->fd)
-                break;
-            it++;
-        }
         _operations.erase(op->fd);
-        _pollfds.erase(it);
+    }
+
+    OperationBase *WebservCore::find_op_by_fd(int fd)
+    {
+        try
+        {
+            return _operations.at(fd);
+        }
+        catch(const std::out_of_range& e)
+        {
+            return NULL;
+        }
+    }
+
+    Socket *WebservCore::find_socket_on_port(uint32_t port)
+    {
+        for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
+        {
+            if (sock->get_port() == port)
+                return &(*sock);
+        }
+        return NULL;
     }

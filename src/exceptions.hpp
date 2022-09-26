@@ -1,6 +1,8 @@
 #ifndef EXCEPTIONS_HPP
 #define EXCEPTIONS_HPP
 
+#include <sstream>
+
 class ParsingException : public std::runtime_error {
 	private:
 		std::string token;
@@ -70,6 +72,22 @@ class InvalidArgumentsException : public std::runtime_error {
 	InvalidArgumentsException() :runtime_error("Invalid number of arguments.\nUsage: ./webserv config_file") {
 	};
 	~InvalidArgumentsException() throw() {}
+};
+
+class AddressAlreadyInUseException : public std::runtime_error {
+	private:
+		std::string msg;
+	public:
+	AddressAlreadyInUseException(uint32_t port) :runtime_error("") {
+		std::ostringstream ss;
+		ss << "Address already in use: port " << port;
+		msg = ss.str();
+	};
+	const char* what() const throw()
+	{
+		return msg.c_str();
+	}
+	~AddressAlreadyInUseException() throw() {}
 };
 
 #endif /* EXCEPTIONS_HPP */
