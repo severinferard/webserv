@@ -45,7 +45,6 @@ ListenOperation *Socket::listen(int backlog)
     }
     printf("Listening on %s:%u\n", _host.c_str(), _port);
     ::listen(_fd, backlog);
-    printf("FD: %d\n", _fd);
     return new ListenOperation(this);
 }
 

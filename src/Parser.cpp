@@ -336,6 +336,8 @@ void Parser::print_server(server_config_t server)
 		PRINT_STRING_VECTOR(i->index);
 		std::cout << "\t" << "autoindex: " << i->autoindex << std::endl;
 	}
+
+	std::cout << std::endl << std::endl;
 }
 
 /*

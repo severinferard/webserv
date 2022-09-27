@@ -23,7 +23,6 @@
             Server server(*config);
            _servers.push_back(server);
         }
-
     }
 
     /**
@@ -48,9 +47,7 @@
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
-                {
-                    printf("catched duplicate port\n");
-                    
+                {                    
                     delete sock;
                     existing_socket = find_socket_on_port(addr->port);
                     if (existing_socket)
@@ -87,6 +84,12 @@
         }
     }
 
+    /**
+     * @brief Add an operation to the map and register its fd to epoll with the desired events
+     * 
+     * @param op Pointer on the operation to add (allocated on the heap)
+     * @param events events such as POLLIN or POLLOUT
+     */
     void WebservCore::add_op(OperationBase *op, uint32_t events) {
         struct epoll_event ev;
 
@@ -99,10 +102,22 @@
         _operations[op->fd] = op;
     }
 
+    /**
+     * @brief Delete an operation from the map. This function does not close the
+     * fd linked to the operation and does not remove it from epoll.
+     * 
+     * @param op 
+     */
     void WebservCore::delete_op(OperationBase *op) {
         _operations.erase(op->fd);
     }
 
+    /**
+     * @brief Return the operation linked to the desired fd. If not operation is found, NULL is returned.
+     * 
+     * @param fd 
+     * @return OperationBase* or NULL
+     */
     OperationBase *WebservCore::find_op_by_fd(int fd)
     {
         try
@@ -115,6 +130,12 @@
         }
     }
 
+    /**
+     * @brief Return the socket already binded to the passed in port. If no socket is found, NULL is returned.
+     * 
+     * @param port 
+     * @return Socket* or NULL
+     */
     Socket *WebservCore::find_socket_on_port(uint32_t port)
     {
         for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)

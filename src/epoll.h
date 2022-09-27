@@ -7,6 +7,10 @@
 # include <sys/epoll.h>
 #else
 
+/**
+ * Empty prototypes to get intelliscence when developping on Mac OS 
+ */
+
 #define EPOLL_CTL_ADD 1
 #define EPOLL_CTL_DEL 2
 #define EPOLL_CTL_MOD 3
