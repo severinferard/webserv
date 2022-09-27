@@ -90,7 +90,7 @@
 //                     state.pollfds[i].revents = 0;
 //                     break;
 //                 case OPERATION_READ_REQUEST:
-//                     ((ReadRequestOperation *)op)->readRequest();
+//                     ((bakReadRequestOperation *)op)->readRequest();
 //                     state.deleteOp(op); i--;
 //                     break;
 //                 }
@@ -137,7 +137,7 @@ void test(void)
 //     int ready = poll(pollfds.data(), pollfds.size(), 10000);
 //     std::cout << ready << std::endl;
 
-//     ReadRequestOperation readReqOp = listenOp->accept();
+//     bakReadRequestOperation readReqOp = listenOp->accept();
 
 //     pfd.fd = readReqOp.fd;
 //     pfd.events = POLLIN;

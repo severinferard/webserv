@@ -22,16 +22,13 @@ class Socket;
 
 class Server {
 private:
-    std::vector<Socket>     _listening_sockets;
     server_config_t         _config;
 
 public:
     Server(server_config_t config);
     ~Server();
     
-    std::vector<Socket> &get_listening_sockets(void);
     server_config_t     &get_config(void);
-    // ListenOperation *start(void);
     
 };
 

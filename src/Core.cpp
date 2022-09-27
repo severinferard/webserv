@@ -73,7 +73,7 @@
 
         while (true)
         {
-            if (!(ready = epoll_wait(_epoll_fd, &event, 1, 10000)))
+            if (!(ready = epoll_wait(_epoll_fd, &event, 1, EPOLL_TIMEOUT)))
                 continue;
             op = find_op_by_fd(event.data.fd);
             switch (op->type)
@@ -81,15 +81,8 @@
             case OPERATION_LISTEN:
                 add_op(((ListenOperation *)op)->accept(), POLLIN);
                 break;
-            case OPERATION_READ_REQUEST:
-                new_op = ((ReadRequestOperation *)op)->read_request();
-                if (new_op) {
-                    delete_op(op);
-                    // add_op(new_op, POLLIN);
-                }
-
-                // delete_op(op);
-                break;
+            case OPERATION_READ_REQ:
+                ((ReadRequestOperation *)op)->read_req();
             }
         }
     }

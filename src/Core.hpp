@@ -20,6 +20,8 @@
 #include "Server.hpp"
 #include "epoll.h"
 
+#define EPOLL_TIMEOUT 10000
+
 class WebservCore {
 
 private:
