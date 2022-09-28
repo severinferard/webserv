@@ -67,3 +67,8 @@ int         Socket::get_fd(void)
 {
     return _fd;
 }
+
+std::vector<Server *> *Socket::get_servers(void)
+{
+    return &_servers;
+}

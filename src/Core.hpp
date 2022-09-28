@@ -14,9 +14,9 @@
 #include <poll.h>
 #include <sys/poll.h>
 #include <map>
-#include "./Parser.hpp"
-#include "./Operation.hpp"
-#include "./Socket.hpp"
+#include "Parser.hpp"
+#include "Operation.hpp"
+#include "Socket.hpp"
 #include "Server.hpp"
 #include "epoll.h"
 

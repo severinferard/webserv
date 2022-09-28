@@ -1,5 +1,6 @@
 #include "Core.hpp"
 
+
     WebservCore::WebservCore()
     {
         _epoll_fd = epoll_create(1);
@@ -65,21 +66,34 @@
         int                 ready;
         OperationBase       *op;
         OperationBase       *new_op;
+        Request             request;
 
         start_listening_sockets();
 
         while (true)
         {
-            if (!(ready = epoll_wait(_epoll_fd, &event, 1, EPOLL_TIMEOUT)))
-                continue;
-            op = find_op_by_fd(event.data.fd);
-            switch (op->type)
+            try {
+                if (!(ready = epoll_wait(_epoll_fd, &event, 1, EPOLL_TIMEOUT)))
+                    continue;
+                op = find_op_by_fd(event.data.fd);
+                switch (op->type)
+                {
+                case OPERATION_LISTEN:
+                    new_op = ((ListenOperation *)op)->accept();
+                    add_op(new_op, POLLIN);
+                    break;
+                case OPERATION_READ_REQ:
+                    request = ((ReadRequestOperation *)op)->read_req();
+                    request.getServer()->handle_request(&request);
+                }
+            }
+            catch (ConnectionResetByPeerException &e)
             {
-            case OPERATION_LISTEN:
-                add_op(((ListenOperation *)op)->accept(), POLLIN);
-                break;
-            case OPERATION_READ_REQ:
-                ((ReadRequestOperation *)op)->read_req();
+                std::cout << e.what() << std::endl;
+            }
+            catch (std::exception &e)
+            {
+
             }
         }
     }

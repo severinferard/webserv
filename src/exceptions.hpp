@@ -2,6 +2,9 @@
 #define EXCEPTIONS_HPP
 
 #include <sstream>
+#include "Socket.hpp"
+
+class Socket;
 
 class ParsingException : public std::runtime_error {
 	private:
@@ -89,5 +92,7 @@ class AddressAlreadyInUseException : public std::runtime_error {
 	}
 	~AddressAlreadyInUseException() throw() {}
 };
+
+
 
 #endif /* EXCEPTIONS_HPP */

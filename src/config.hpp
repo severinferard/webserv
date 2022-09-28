@@ -7,9 +7,16 @@
 # include <stdint.h>
 # include <vector>
 
-# include "request.hpp"
 
 # define DEFAULT_CLIENT_MAX_BODY_SIZE 1000000
+
+enum http_methods_e {
+    GET,
+    HEAD,
+    POST,
+    PUT,
+    DELETE,
+};
 
 typedef struct  host_port_s {
     std::string host;

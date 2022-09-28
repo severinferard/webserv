@@ -45,24 +45,40 @@ ReadRequestOperation::~ReadRequestOperation()
 
 }
 
-OperationBase * ReadRequestOperation::read_req(void)
+Request ReadRequestOperation::read_req(void)
 {
     int ret = recv(fd, _buffer, BUFFER_SIZE, 0);
     if (ret <= 0)
     {
-        if (ret == 0)
-            printf("Connection closed by client\n");
-        else if (ret == -1)
-            printf("Error reading request\n");
         close(fd);
+        if (ret == 0)
+            throw ConnectionResetByPeerException(_socket, fd);
+        else if (ret == -1)
+            throw std::runtime_error("Error reading request");
     }
     else
     {
         _buffer[ret] = 0;
         std::cout << "Recieved request on address " << _socket->get_host() << ":" << _socket->get_port() << " : " << std::endl;
         std::cout << _buffer << std::endl;
-        close(fd); // provisoire
+        // close(fd); // provisoire
+        // return new ReadFileToResponseBody(_server, )
     }
 
-    return NULL;
+    return Request(_socket->get_servers()->at(0), fd, "/lol");
+}
+
+
+ReadFileToResponseBody::ReadFileToResponseBody(Server *server, int fd, Response *response):
+OperationBase(NULL, server, OPERATION_READ_FILE, fd)
+{
+}
+
+ReadFileToResponseBody::~ReadFileToResponseBody()
+{
+}
+
+int ReadFileToResponseBody::read()
+{
+    return 0;
 }

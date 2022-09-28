@@ -10,12 +10,18 @@
 #include <fstream>
 #include <unistd.h>
 
-#include "./Server.hpp"
-#include "./Socket.hpp"
+#include "Server.hpp"
+#include "Socket.hpp"
+#include "Response.hpp"
+#include "request.hpp"
+#include "Client.hpp"
 
 #define OPERATION_BASE      0x01
 #define OPERATION_LISTEN    0x02
 #define OPERATION_READ_REQ  0x03
+#define OPERATION_READ_FILE 0x04
+
+class Request;
 
 class OperationBase
 {
@@ -48,8 +54,20 @@ class ReadRequestOperation: public OperationBase
         ReadRequestOperation(Socket *socket, int req_fd);
         ~ReadRequestOperation();
 
-        OperationBase * read_req(void);
+        Request read_req(void);
         
+};
+
+class ReadFileToResponseBody: public OperationBase
+{
+    private:
+        int fd;
+        Response *response;
+    
+    public:
+        ReadFileToResponseBody(Server *server, int fd, Response *response);
+        ~ReadFileToResponseBody();
+        int read();
 };
 
 
