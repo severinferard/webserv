@@ -13,6 +13,7 @@
 #include "./Parser.hpp"
 #include "./Operation.hpp"
 #include "Core.hpp"
+#include "utils.hpp"
 
 
 // ListenOperation *start_server(server_config_t config)

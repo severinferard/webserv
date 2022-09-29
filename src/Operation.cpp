@@ -1,4 +1,5 @@
 #include "Operation.hpp"
+#include "request.hpp"
 
 OperationBase::OperationBase(Socket *socket, Server *server, int type, int fd):
     _socket(socket),
@@ -85,7 +86,10 @@ ReadRequestOperation::~ReadRequestOperation()
 
 OperationBase * ReadRequestOperation::read_req(void)
 {
-    int ret = recv(fd, _buffer, BUFFER_SIZE, 0);
+    int				ret;
+    std::vector<std::string>	lines;
+
+    ret = recv(fd, _buffer, BUFFER_SIZE, 0);
     if (ret <= 0)
     {
         if (ret == 0)
@@ -99,7 +103,8 @@ OperationBase * ReadRequestOperation::read_req(void)
     {
         _buffer[ret] = 0;
         std::cout << "Recieved request on address " << _socket->get_host() << ":" << _socket->get_port() << " : " << std::endl;
-        std::cout << _buffer << std::endl;
+        std::cout << '[' << _buffer << ']' << std::endl;
+	Request req = parse_request(_buffer);
         close(fd); // provisoire
     }
 

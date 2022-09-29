@@ -11,7 +11,7 @@ NAME = webserv
 
 CC = g++
 
-CFLAGS = -Wall -Wextra -Werror -std=c++98 -fsanitize=address -Wno-unused-variable -Wno-unused-private-field -Wno-unused-parameter
+CFLAGS = -Wall -Wextra -Werror -std=c++98 -Wno-unused-variable -Wno-unused-private-field -Wno-unused-parameter
 
 RM = rm -f
 
@@ -28,21 +28,6 @@ ARGS = $(filter-out $@,$(MAKECMDGOALS))
 PRINT_PRE_BUILD = 
 
 PRINT_PRE_RUN =
-
-_END=\x1b[0m
-_BOLD=\x1b[1m
-_UNDER=\x1b[4m
-_REV=\x1b[7m
-
-# Colors
-_GREY=\x1b[30m
-_RED=\x1b[31m
-_GREEN=\x1b[32m
-_YELLOW=\x1b[33m
-_BLUE=\x1b[34m
-_PURPLE=\x1b[35m
-_CYAN=\x1b[36m
-_WHITE=\x1b[37m
 
 ifeq ($(USE_DOCKER), 1)
 	CONTEXT = docker run --name $(DOCKER_CONTAINER_NAME) -v $(shell pwd):/root/webserv -w /root/webserv $(DOCKER_EXPOSED_PORTS_CMD) --rm -i -t --init $(DOCKER_IMAGE)
