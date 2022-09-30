@@ -1,5 +1,5 @@
-# include "utils.hpp"
-# include <cstring>
+#include "utils.hpp"
+#include <cstring>
 
 std::vector<std::string> splitstr(std::string str, std::string delim) {
     std::vector<std::string>	splits;
@@ -33,6 +33,13 @@ bool has_whitespace(std::vector<std::string> line) {
     return false;
 }
 
+bool has_whitespace(std::string str) {
+    for (size_t i = 0; i < str.size(); i++)
+	if (isspace(str[i]))
+	    return true;
+    return false;
+}
+
 std::string tolowerstr(std::string str) {
     std::string	low = str;
 
@@ -47,4 +54,26 @@ std::string trimstr(std::string str) {
     trim.erase(str.find_last_not_of(WHITESPACE) + 1);
     trim.erase(0, str.find_first_not_of(WHITESPACE));
     return trim;
+}
+
+void print_headers(std::map<std::string, std::string> headers) {
+    std::map<std::string, std::string>::const_iterator	it;
+
+    std::cout << "{\n";
+    for(it = headers.begin(); it != headers.end(); ++it) {
+	std::cout << "    \"" << it->first << "\":    ";
+	std::cout << '"' << it->second << '"' << "\n";
+    }
+    std::cout << "}\n";
+}
+
+std::string joinstr(std::vector<std::string> strs, std::string delim) {
+    std::string	join;
+
+    for (size_t i = 0; i < strs.size(); i++) {
+	join += strs[i];
+	if (i < strs.size() - 1)
+	    join += delim;
+    }
+    return join;
 }

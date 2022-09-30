@@ -102,9 +102,9 @@ OperationBase * ReadRequestOperation::read_req(void)
     else
     {
         _buffer[ret] = 0;
-        std::cout << "Recieved request on address " << _socket->get_host() << ":" << _socket->get_port() << " : " << std::endl;
-        std::cout << '[' << _buffer << ']' << std::endl;
+        std::cout << "Recieved request on address " << _socket->get_host() << ":" << _socket->get_port() << " : \n\n";
 	Request req = parse_request(_buffer);
+	std::cout << req;
         close(fd); // provisoire
     }
 
