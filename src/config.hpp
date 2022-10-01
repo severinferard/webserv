@@ -53,9 +53,9 @@ typedef struct              server_config_s {
     std::vector<std::string>    index;
     std::vector<location_t>     locations;
     std::vector<error_page_t>   error_pages;
-    uint32_t                    client_max_body_size;
+    int                         client_max_body_size;
     std::vector<http_methods_e> allowed_methods;
-    bool                        autoindex;
+    int                         autoindex;
 }                           server_config_t;
 
 #endif /* CONFIG_HPP */

@@ -21,7 +21,7 @@ Socket::~Socket()
 {
 }
 
-ListenOperation *Socket::listen(int backlog)
+int    Socket::listen(int backlog)
 {
     struct in_addr host;
     struct pollfd pfd;
@@ -45,7 +45,7 @@ ListenOperation *Socket::listen(int backlog)
     }
     printf("Listening on %s:%u\n", _host.c_str(), _port);
     ::listen(_fd, backlog);
-    return new ListenOperation(this);
+    return _fd;
 }
 
  void            Socket::add_server(Server * server)
@@ -53,22 +53,34 @@ ListenOperation *Socket::listen(int backlog)
     _servers.push_back(server);
  }
 
-std::string Socket::get_host(void)
+std::string Socket::get_host(void) const
 {
     return _host;
 }
 
-uint32_t    Socket::get_port(void)
+uint32_t    Socket::get_port(void) const
 {
     return _port;
 }
 
-int         Socket::get_fd(void)
+int         Socket::get_fd(void) const
 {
     return _fd;
 }
 
-std::vector<Server *> *Socket::get_servers(void)
+const std::vector<Server *> *Socket::get_servers(void) const
 {
     return &_servers;
+}
+
+Client          *Socket::acceptConnection(void) const
+{
+    struct sockaddr_in  cli_addr;
+    socklen_t           cli_len;
+    int                 new_fd;
+
+    cli_len = sizeof(cli_addr);
+    new_fd = ::accept(_fd, (struct sockaddr *) &cli_addr, &cli_len);
+
+    return new Client(inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), this, new_fd);
 }

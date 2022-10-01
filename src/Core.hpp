@@ -15,7 +15,7 @@
 #include <sys/poll.h>
 #include <map>
 #include "Parser.hpp"
-#include "Operation.hpp"
+#include "Client.hpp"
 #include "Socket.hpp"
 #include "Server.hpp"
 #include "epoll.h"
@@ -25,17 +25,18 @@
 class WebservCore {
 
 private:
-    std::map<int, OperationBase *>  _operations;
     std::vector<Server>             _servers;
     std::vector<Socket>             _sockets;
+    std::map<int, Client *>         _clients;
     int                             _epoll_fd;
 
-
-    void                            add_op(OperationBase *op, uint32_t events);
-    void                            delete_op(OperationBase *op);
-    OperationBase *                 find_op_by_fd(int fd);
-    Socket *                        find_socket_on_port(uint32_t port);
-    void                            start_listening_sockets(void);
+    Socket *                        _findSocketOnPort(uint32_t port);
+    void                            _startListeningSockets(void);
+    bool                            _isListeningSocket(int fd);
+    Socket *                        _getListeningSocket(int fd);
+    void                            _registerFd(int fd, uint32_t events);
+    void                            _modifyFd(int fd, uint32_t events);
+    Client *                        _findClient(int fd);
     
 public:
     WebservCore();

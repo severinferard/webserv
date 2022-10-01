@@ -193,6 +193,8 @@ location_t					Parser::parse_location(std::ifstream & file)
 {
 	std::string	token;
 	location_t	ret;
+	ret.autoindex = -1;
+	ret.client_body_temp_path = -1;
 
 	ret.modifier = PATH_NO_MODIFIDER;
 	token = get_next_token(file);

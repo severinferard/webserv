@@ -13,12 +13,13 @@
 # include <arpa/inet.h>
 # include <poll.h>
 
-# include "Operation.hpp"
 # include "Server.hpp"
 # include "exceptions.hpp"
+# include "Client.hpp"
 
 class Server;
 class ListenOperation;
+class Client;
 
 class Socket {
     private:
@@ -33,13 +34,14 @@ class Socket {
         Socket(std::string host, uint32_t port, int fd);
         ~Socket();
 
-        ListenOperation *listen(int backlog = 5);
-        void            add_server(Server * server);
+        int                         listen(int backlog = 5);
+        void                        add_server(Server * server);
+        Client                      *acceptConnection(void) const;
 
-        std::string get_host(void);
-        uint32_t    get_port(void);
-        int         get_fd(void);
-        std::vector<Server *> *get_servers(void);
+        std::string                 get_host(void) const;
+        uint32_t                    get_port(void) const;
+        int                         get_fd(void) const;
+        const std::vector<Server *> *get_servers(void) const;
         
 };
 
@@ -48,7 +50,7 @@ class ConnectionResetByPeerException : public std::runtime_error {
 		std::string msg;
 		int _fd;
 	public:
-	ConnectionResetByPeerException(Socket *socket, int fd) :runtime_error("Connection reset by peer"), _fd(fd) {
+	ConnectionResetByPeerException(const Socket *socket, const int fd) :runtime_error("Connection reset by peer"), _fd(fd) {
 		std::ostringstream ss;
 		ss << socket->get_host() << ":" << socket->get_port() << "Connection Reset By Peer with fd " << socket->get_fd()  << std::endl;
 		msg = ss.str();

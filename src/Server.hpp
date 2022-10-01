@@ -11,30 +11,26 @@
 # include <sys/socket.h>
 # include <netinet/in.h>
 # include <arpa/inet.h>
-# include <poll.h>
-
 # include "config.hpp"
 # include "Operation.hpp"
-# include "Socket.hpp"
 # include "Response.hpp"
 # include "Request.hpp"
 
-class Socket;
 class Request;
 typedef struct server_config_s server_config_t;
 
 class Server {
 private:
-    server_config_t         _config;
-    std::vector<Response>   _responses;
+    const server_config_t         _config;
 
 public:
     Server(server_config_t config);
     ~Server();
     
-    server_config_t     &get_config(void);
+    const server_config_t     &get_config(void) const;
     void                send_file(std::string path);
-    void                handle_request(Request *request);
+    const location_t          *findLocation(std::string uri);
+    // int                resolveAndOpenFile(std::string uri);
     
 };
 

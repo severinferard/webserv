@@ -30,7 +30,7 @@
      * @brief Goes through the configuration of each virtual server and create the corresponding listening sockets based on the 'listen'
      * directive. The newly created Socket objects are stored in the _sockets vector and ListeningOperation objects are added to the operation queue. 
      */
-    void WebservCore::start_listening_sockets(void)
+    void WebservCore::_startListeningSockets(void)
     {
         Socket *sock;
         Socket *existing_socket;
@@ -44,13 +44,13 @@
                 sock->add_server(&(*server));
                 try
                 {
-                    add_op(sock->listen(), POLLIN);
+                    _registerFd(sock->listen(), POLLIN);
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
                 {                    
                     delete sock;
-                    existing_socket = find_socket_on_port(addr->port);
+                    existing_socket = _findSocketOnPort(addr->port);
                     if (existing_socket)
                         existing_socket->add_server(&(*server));
                     else
@@ -63,94 +63,53 @@
     void WebservCore::run(void)
     {
         struct epoll_event  event;
-        int                 ready;
-        OperationBase       *op;
-        OperationBase       *new_op;
-        Request             request;
 
-        start_listening_sockets();
+        int                 ready;
+        Request             request;
+        Socket              *sock;
+        Client              *client;
+        epoll_operation_t   op;
+
+        _startListeningSockets();
 
         while (true)
         {
             try {
                 if (!(ready = epoll_wait(_epoll_fd, &event, 1, EPOLL_TIMEOUT)))
                     continue;
-                op = find_op_by_fd(event.data.fd);
-                switch (op->type)
+                if ((sock = _getListeningSocket(event.data.fd)))
                 {
-                case OPERATION_LISTEN:
-                    new_op = ((ListenOperation *)op)->accept();
-                    add_op(new_op, POLLIN);
-                    break;
-                case OPERATION_READ_REQ:
-                    request = ((ReadRequestOperation *)op)->read_req();
-                    request.getServer()->handle_request(&request);
+                    client = sock->acceptConnection();
+                    std::cout << "New client connected on endpoint " << client->socket->get_host().c_str() << ":" << client->socket->get_port() << " from " << client->addr << ":" << client->port << std::endl;
+                    _clients[client->connection_fd] = client;
+                    _registerFd(client->connection_fd, POLLIN);
                 }
+                else
+                {
+                    client = _findClient(event.data.fd);
+                    client->resume(_epoll_fd, &_clients);
+                }
+                
             }
             catch (ConnectionResetByPeerException &e)
             {
                 std::cout << e.what() << std::endl;
             }
-            catch (std::exception &e)
-            {
+            // catch (std::exception &e)
+            // {
 
-            }
+            // }
         }
     }
 
-    /**
-     * @brief Add an operation to the map and register its fd to epoll with the desired events
-     * 
-     * @param op Pointer on the operation to add (allocated on the heap)
-     * @param events events such as POLLIN or POLLOUT
-     */
-    void WebservCore::add_op(OperationBase *op, uint32_t events) {
-        struct epoll_event ev;
-
-        ev.events = events;
-        ev.data.fd = op->fd;
-        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, op->fd, &ev) == -1) {
-            perror("epoll_ctl: listen_sock");
-            exit(EXIT_FAILURE);
-        }
-        _operations[op->fd] = op;
-    }
-
-    /**
-     * @brief Delete an operation from the map. This function does not close the
-     * fd linked to the operation and does not remove it from epoll.
-     * 
-     * @param op 
-     */
-    void WebservCore::delete_op(OperationBase *op) {
-        _operations.erase(op->fd);
-    }
-
-    /**
-     * @brief Return the operation linked to the desired fd. If not operation is found, NULL is returned.
-     * 
-     * @param fd 
-     * @return OperationBase* or NULL
-     */
-    OperationBase *WebservCore::find_op_by_fd(int fd)
-    {
-        try
-        {
-            return _operations.at(fd);
-        }
-        catch(const std::out_of_range& e)
-        {
-            return NULL;
-        }
-    }
-
+  
     /**
      * @brief Return the socket already binded to the passed in port. If no socket is found, NULL is returned.
      * 
      * @param port 
      * @return Socket* or NULL
      */
-    Socket *WebservCore::find_socket_on_port(uint32_t port)
+    Socket *WebservCore::_findSocketOnPort(uint32_t port)
     {
         for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
         {
@@ -158,4 +117,60 @@
                 return &(*sock);
         }
         return NULL;
+    }
+
+    bool    WebservCore::_isListeningSocket(int fd)
+    {
+        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
+        {
+            if (socket_it->get_fd() == fd)
+                return true;
+        }
+        return false;
+    }
+
+    void    WebservCore::_registerFd(int fd, uint32_t events)
+    {
+        struct epoll_event ev;
+
+        ev.events = events;
+        ev.data.fd = fd;
+        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
+        {
+            throw std::runtime_error("Error registering fd with epoll");
+        }
+    }
+
+    void    WebservCore::_modifyFd(int fd, uint32_t events)
+    {
+        struct epoll_event ev;
+
+        ev.events = events;
+        ev.data.fd = fd;
+        if (epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
+        {
+            throw std::runtime_error("Error registering fd with epoll");
+        }
+    }
+
+    Socket *WebservCore:: _getListeningSocket(int fd)
+    {
+        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
+        {
+            if (socket_it->get_fd() == fd)
+                return &(*socket_it);
+        }
+        return NULL;
+    }
+
+    Client * WebservCore:: _findClient(int fd)
+    {
+        try
+        {
+            return _clients.at(fd);
+        }
+        catch(const std::out_of_range& e)
+        {
+            return NULL;
+        }
     }
