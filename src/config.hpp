@@ -8,6 +8,8 @@
 # include <vector>
 
 
+# define DEFAULT_LISTENING_ADDR "0.0.0.0"
+# define DEFAULT_LISTENING_PORT 80
 # define DEFAULT_CLIENT_MAX_BODY_SIZE 1000000
 
 enum http_methods_e {
@@ -19,6 +21,8 @@ enum http_methods_e {
 };
 
 typedef struct  host_port_s {
+    bool        hostIsSet;
+    bool        portIsSet;
     std::string host;
     uint32_t    port;
 }               host_port_t;

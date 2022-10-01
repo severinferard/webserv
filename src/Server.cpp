@@ -47,7 +47,7 @@ const location_t          *Server::findLocation(std::string uri)
         }
         else if (loc_it->modifier == PATH_ENDWITH)
         {
-            if (uri.substr(uri.size() - loc_it->path.size(), loc_it->path.size()) == loc_it->path)
+            if (uri.size() > loc_it->path.size() && uri.substr(uri.size() - loc_it->path.size(), loc_it->path.size()) == loc_it->path)
                 return &(*loc_it);
         }
     }

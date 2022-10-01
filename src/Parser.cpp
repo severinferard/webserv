@@ -98,12 +98,36 @@ host_port_t Parser::parse_listen(std::ifstream & file)
 	host_port_t host_port;
 	token = get_next_token(file);
 	size_t semi_col = token.find(':');
-	if (semi_col != std::string::npos) {
+
+	// If the line contains a full ip + port
+	if (semi_col != std::string::npos)
+	{
+		host_port.hostIsSet = true;
+		host_port.portIsSet = true;
 		host_port.host = token.substr(0, semi_col);
 		host_port.port = atoi(token.substr(semi_col + 1, token.size() - 1).c_str());
-	} else {
-		host_port.host = "0.0.0.0";
-		host_port.port = atoi(token.c_str());
+		// Verify that the IP address is correct.
+		if (std::count(host_port.host.begin(), host_port.host.end(), '.') != 3)
+			throw InvalidTokenException(host_port.host, get_current_line(file), "Invalid listening address");
+	}
+	// Otherwise if the address in only partial
+	else
+	{
+		// We concider that the token is meant to be an IP address if it contains at least 1 "." .
+		if (token.find('.') != std::string::npos)
+		{
+			host_port.hostIsSet = true;
+			host_port.portIsSet = false;
+			host_port.host = token;
+			host_port.port = DEFAULT_LISTENING_PORT;
+		}
+		else
+		{
+			host_port.portIsSet = true;
+			host_port.hostIsSet = false;
+			host_port.port = atoi(token.c_str());
+			host_port.host = DEFAULT_LISTENING_ADDR;
+		}
 	}
 	assert_next_token(file, ";");
 	return host_port;

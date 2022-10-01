@@ -8,6 +8,7 @@
 # include <sys/socket.h>
 
 #define HTTP_STATUS_200 "200 OK"
+#define HTTP_STATUS_404 "404 Not Found"
 
 class Response
 {

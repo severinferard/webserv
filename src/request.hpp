@@ -35,7 +35,7 @@ class Request
         std::string                         getUri(void) const;
         std::string                         getMethod(void) const;
         std::string                         getVersion(void) const;
-        std::map<std::string, std::string>  getHeaders(void) const;
+        const std::map<std::string, std::string>  &getHeaders(void) const;
         std::string                         getBody(void) const;
         int                                 getFd(void) const;
 };

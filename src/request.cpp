@@ -52,7 +52,7 @@ std::string                         Request::getVersion(void) const
     return _version;
 }
 
-std::map<std::string, std::string>  Request::getHeaders(void) const
+const std::map<std::string, std::string>  &Request::getHeaders(void) const
 {
     return _headers;
 }

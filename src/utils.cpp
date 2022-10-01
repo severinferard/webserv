@@ -1,5 +1,6 @@
 #include "utils.hpp"
 #include <cstring>
+#include <cerrno>
 
 std::vector<std::string> splitstr(std::string str, std::string delim) {
     std::vector<std::string>	splits;
@@ -86,7 +87,10 @@ bool isValidHttpMethod(std::string method)
 
 bool uriIsDirectory(std::string uri)
 {
-    return uri[uri.size() - 1] == '/';
+    struct stat pathStat;
+
+    stat(uri.c_str(), &pathStat);
+    return S_ISDIR(pathStat.st_mode);
 }
 
 void    registerFd(int epoll_fd, int fd, uint32_t events)
@@ -97,6 +101,7 @@ void    registerFd(int epoll_fd, int fd, uint32_t events)
     ev.data.fd = fd;
     if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
     {
+        std::cout << strerror(errno) << std::endl;
         throw std::runtime_error("Error registering fd with epoll");
     }
 }

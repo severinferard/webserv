@@ -19,22 +19,30 @@ class ParsingException : public std::runtime_error {
 	}
 };
 
-class UnexpectedTokenException : public ParsingException {
+class InvalidTokenException : public ParsingException {
 	private:
-		std::string token;
 		std::string msg;
 	public:
-	UnexpectedTokenException(std::string token, int line) :  ParsingException(""), token(token) {
+	InvalidTokenException(std::string token, int line, std::string str) :  ParsingException("") {
 		std::ostringstream ss;
-		ss << "line " << line << ": " << "Unexpected token: " << "'" << token << "'";
+		ss << "line " << line << ": " << str << ": " << "'" << token << "'";
 		msg = ss.str();
 	};
-	~UnexpectedTokenException() throw() {}
+	~InvalidTokenException() throw() {}
 	const char* what() const throw()
 	{
 		return msg.c_str();
 	}
 };
+
+class UnexpectedTokenException : public InvalidTokenException {
+	private:
+		std::string msg;
+	public:
+	UnexpectedTokenException(std::string token, int line) :  InvalidTokenException(token, line, "Unexpected token") {};
+	~UnexpectedTokenException() throw() {}
+};
+
 
 class UnknownDirectiveException : public ParsingException {
 	private:
