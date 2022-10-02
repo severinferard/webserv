@@ -33,7 +33,8 @@ class Parser
 		std::string					parse_root(std::ifstream & file);
 		host_port_t					parse_listen(std::ifstream & file);
 		std::vector<std::string>	parse_server_name(std::ifstream & file);
-		void						parse_error_page(std::ifstream & file, std::vector<error_page_t> & error_pages);
+		void						parse_error_page(std::ifstream & file, std::map<int, error_page_t> & error_pages);
+		void						init_error_pages(std::map<int, error_page_t> & error_pages);
 		std::vector<std::string>	parse_index(std::ifstream & file);
 		uint32_t					parse_client_max_body_size(std::ifstream & file);
 		std::vector<http_methods_e> parse_allowed_methods(std::ifstream & file);

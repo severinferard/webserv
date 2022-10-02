@@ -6,11 +6,14 @@
 // # include <cstdint>
 # include <stdint.h>
 # include <vector>
+# include <map>
 
 
 # define DEFAULT_LISTENING_ADDR "0.0.0.0"
 # define DEFAULT_LISTENING_PORT 80
 # define DEFAULT_CLIENT_MAX_BODY_SIZE 1000000
+
+#define DEFAULT_ERROR_PAGE_404 "./www/errors/404.html"
 
 enum http_methods_e {
     GET,
@@ -44,7 +47,7 @@ typedef struct              location_s {
     path_modifier_e             modifier;
     std::string                 root;
     std::vector<std::string>    index;
-    std::vector<error_page_t>   error_pages;
+    std::map<int, error_page_t>   error_pages;
     std::vector<http_methods_e> allowed_methods;
     bool                        autoindex;
     std::string                 client_body_temp_path;
@@ -56,7 +59,7 @@ typedef struct              server_config_s {
     std::string                 root;
     std::vector<std::string>    index;
     std::vector<location_t>     locations;
-    std::vector<error_page_t>   error_pages;
+    std::map<int, error_page_t>   error_pages;
     int                         client_max_body_size;
     std::vector<http_methods_e> allowed_methods;
     int                         autoindex;

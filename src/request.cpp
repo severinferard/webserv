@@ -146,11 +146,11 @@ void        Request::parse(void)
 
 
 std::ostream& operator<<(std::ostream& os, Request const& r) {
-    os << std::setw(10) << "Method:    \"" << r.getMethod() << '"' << std::endl;
-    os << std::setw(10) << "URI:       \"" << r.getUri() << '"' << std::endl;
-    os << std::setw(10) << "Version:   \"" << r.getVersion() << '"' << std::endl;
-    os << std::setw(10) << "Headers:   ";
+    os << std::setw(10) << "Method:    \"" << r.getMethod() << '"' << "\n";
+    os << std::setw(10) << "URI:       \"" << r.getUri() << '"' << "\n";
+    os << std::setw(10) << "Version:   \"" << r.getVersion() << '"' << "\n";
+    os << std::setw(10) << "Headers:   " << "\n";
     print_headers(r.getHeaders());
-    os << std::setw(10) << "Body:      \"" << r.getBody() << '"' << std::endl;
+    os << std::setw(10) << "Body:      \"" << r.getBody() << '"' << "\n";
     return os;
 }

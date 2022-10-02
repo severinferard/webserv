@@ -60,13 +60,13 @@ std::string trimstr(std::string str) {
 void print_headers(std::map<std::string, std::string> headers) {
     std::map<std::string, std::string>::const_iterator	it;
 
-    std::cout << "{" << std::endl;
+    std::cout << "{" << "\n";
     for(it = headers.begin(); it != headers.end(); ++it)
     {
-        std::cout << std::setw(10) << it->first << "\":    ";
-        std::cout << '"' << it->second << '"' << std::endl;
+        std::cout << "\t" << std::setw(30) << std::left << it->first + ":";
+        std::cout << '"' << it->second << '"' << "\n";
     }
-    std::cout << "}" << std::endl;
+    std::cout << "}" << "\n";
 }
 
 std::string joinstr(std::vector<std::string> strs, std::string delim) {
@@ -123,4 +123,16 @@ std::string toString(const unsigned long& value)
     std::ostringstream oss;
     oss << value;
     return oss.str();
+}
+
+#include <cstdio>
+
+std::string joinPath(const std::string &left, const std::string &right)
+{
+    size_t end = left.find_last_not_of("/");
+    size_t start = right.find_first_not_of("/");
+
+    std::string newLeft = (end == std::string::npos) ? "" : left.substr(0, end + 1);
+    std::string newRight = (start == std::string::npos) ? "" : right.substr(start);
+    return newLeft + "/" + newRight;
 }

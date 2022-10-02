@@ -68,7 +68,6 @@
         Request             request;
         Socket              *sock;
         Client              *client;
-        epoll_operation_t   op;
 
         _startListeningSockets();
 

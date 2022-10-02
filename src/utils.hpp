@@ -22,5 +22,12 @@ bool isValidHttpMethod(std::string method);
 void    registerFd(int epoll_fd, int fd, uint32_t events);
 void    modifyFd(int epoll_fd, int fd, uint32_t events);
 std::string toString(const unsigned long& value);
+std::string joinPath(const std::string &left, const std::string &right);
+
+template<typename K, typename V>
+bool hasKey(std::map<K, V>m, K key)
+{
+    return m.find(key) != m.end();
+}
 
 #endif /* UTILS_HPP */

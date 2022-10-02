@@ -19,7 +19,8 @@ int       openFile(std::string filename)
     int ret = ::open(filename.c_str(), O_RDONLY);
     if (ret >= 0)
         return ret;
-    throw HttpError404();
+    std::cout << strerror(errno) << std::endl;
+    throw HttpError(404);
 }
 
 
@@ -42,23 +43,23 @@ int        Client::readRequest(void)
         _request = Request(connection_fd, _buffer);
         _request.parse();
         std::cout << _request << std::endl;
-        Server *server = findServer();
-        std::cout << "root: " << server->get_config().root << std::endl;
-        // printf("here\n");
-        const location_t *loc = server->findLocation(_request.getUri());
+        _server = findServer();
+        std::cout << "root: " << _server->get_config().root << std::endl;
+        _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
         std::string filepath;
-        if (loc)
-            std::cout << "location: " << loc->path << std::endl;
+        if (_location)
+            std::cout << "location: " << _location->path << std::endl;
         else
             std::cout << "location: No location" << std::endl;
 
-        if (loc && !loc->root.empty())
-            filepath = loc->root + _request.getUri();
+        if (_location && !_location->root.empty())
+            filepath = joinPath(_location->root, _request.getUri());
         else
-            filepath = server->get_config().root + _request.getUri();
+            filepath = joinPath(_server->get_config().root, _request.getUri());
         std::cout << "filepath: " << filepath << std::endl;
         if (uriIsDirectory(filepath))
         {
+            printf("IS DIR\n");
             return -1;
         }
         else
@@ -96,18 +97,18 @@ void        Client::resume(int epoll_fd, std::map<int, Client *> *clients)
             if (readRequest() > 0)
             {
                 _status = STATUS_WAIT_TO_READ_FILE;
+                _response.setStatus(200);
                 registerFd(epoll_fd, _file_fd, EPOLLIN);
                 (*clients)[_file_fd] = this;
             }
-            else throw HttpError404();
-            
+            else
+                throw HttpError(404);
             break;
         
         case STATUS_WAIT_TO_READ_FILE:
             empty = readFileToResponseBody();
             if (empty)
             {
-                _response.setStatus(HTTP_STATUS_200);
                 _status = STATUS_WAIT_TO_SEND;
                 clients->erase(_file_fd);
                 modifyFd(epoll_fd, connection_fd, EPOLLOUT);
@@ -124,18 +125,21 @@ void        Client::resume(int epoll_fd, std::map<int, Client *> *clients)
             break;
         }
     }
-    catch(const HttpError404& e)
-    {
-        std::cerr << e.what() << '\n';
-        _response.setStatus(HTTP_STATUS_404);
-        _response.send(connection_fd);
-        close(connection_fd);
-    }
     catch(const HttpError& e)
     {
-        std::cerr << e.what() << '\n';
-        send(connection_fd, e.what(), strlen(e.what()), 0);
-        close(connection_fd);
+        error_page_t errorPage;
+
+        std::cerr << "HTTP Error: " << e.status << " " << Response::HTTP_STATUS[e.status] << '\n';
+        if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
+            errorPage = _location->error_pages[e.status];
+        else
+            errorPage =  _server->get_config().error_pages.at(e.status);
+        printf("error page %s\n", errorPage.path.c_str());
+        _response.setStatus(errorPage.code);
+        _file_fd = openFile(errorPage.path);
+        registerFd(epoll_fd, _file_fd, EPOLLIN);
+        (*clients)[_file_fd] = this;
+        _status = STATUS_WAIT_TO_READ_FILE;
     }
     
 }
@@ -161,7 +165,6 @@ Server *			Client::findServer(void)
                 results.push_back(*it);
         }
     }
-    printf("after 1. %ld\n", results.size());
     if (results.empty())
     {
         // 1.5. Listen specificity - check if the address is defined

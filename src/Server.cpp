@@ -37,12 +37,14 @@ const location_t          *Server::findLocation(std::string uri)
         if (loc_it->modifier == PATH_NO_MODIFIDER)
         {
             // Compare each field up to the last one.
-            for (unsigned int i = 0; i < locParsed.size(); i++)
+            unsigned int i = 0;
+            while (i < locParsed.size())
             {
                 if (uriParsed[i] != locParsed[i] && locParsed[i] != "*")
                     break;
+                i++;
             }
-            if (locParsed[locParsed.size() - 1] == uriParsed[locParsed.size() - 1] || locParsed[locParsed.size() - 1] == "*")
+            if (locParsed[i] == uriParsed[i] || locParsed[i] == "*")
                 return &(*loc_it);
         }
         else if (loc_it->modifier == PATH_ENDWITH)

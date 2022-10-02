@@ -4,6 +4,7 @@
 # include <string>
 # include <algorithm>
 # include "Socket.hpp"
+# include "Server.hpp"
 # include "Request.hpp"
 # include "Response.hpp"
 # include "epoll.h"
@@ -22,6 +23,7 @@ typedef enum ClientStatus_s {
 class Socket;
 class Request;
 class WebservCore;
+class Server;
 
 #define EPOLL_OP_NOOP -1
 #define EPOLL_OP_ADD 1
@@ -30,34 +32,34 @@ class WebservCore;
 
 class HttpError : public std::runtime_error {
 	public:
-		HttpError(): std::runtime_error("Http Error"){};
-		HttpError(std::string msg): std::runtime_error(msg){};
+		int status;
+		HttpError(int status): std::runtime_error("Http Error"), status(status){};
 		~HttpError() throw() {}
 };
 
-class HttpError401 : public HttpError {
-	public:
-		HttpError401(): HttpError("Http Error: 401 Length Required"){};
-		~HttpError401() throw() {}
-};
+// class HttpError401 : public HttpError {
+// 	public:
+// 		HttpError401(): HttpError("Http Error: 401 Length Required"){};
+// 		~HttpError401() throw() {}
+// };
 
-class HttpError403 : public HttpError {
-	public:
-		HttpError403(): HttpError("Http Error: 403 Forbidden"){};
-		~HttpError403() throw() {}
-};
+// class HttpError403 : public HttpError {
+// 	public:
+// 		HttpError403(): HttpError("Http Error: 403 Forbidden"){};
+// 		~HttpError403() throw() {}
+// };
 
-class HttpError404 : public HttpError {
-	public:
-		HttpError404(): HttpError("Http Error: 404 Not Found"){};
-		~HttpError404() throw() {}
-};
+// class HttpError404 : public HttpError {
+// 	public:
+// 		HttpError404(): HttpError("Http Error: 404 Not Found"){};
+// 		~HttpError404() throw() {}
+// };
 
-class HttpError405 : public HttpError {
-	public:
-		HttpError405(): HttpError("Http Error: 405 Method not allowed"){};
-		~HttpError405() throw() {}
-};
+// class HttpError405 : public HttpError {
+// 	public:
+// 		HttpError405(): HttpError("Http Error: 405 Method not allowed"){};
+// 		~HttpError405() throw() {}
+// };
 
 class Client
 {
@@ -66,6 +68,8 @@ class Client
 		ClientStatus_t	_status;
 		Request			_request;
 		Response		_response;
+		Server			*_server;
+		location_t		*_location;
 
 		int				_file_fd;
 		

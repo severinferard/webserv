@@ -16,14 +16,18 @@ class Response
         std::string _body;
         std::map<std::string, std::string> _headers;
         std::string _payload;
-        std::string _status;
+        int _status;
+
+        static void _initHttpStatus(void);
     
     public:
         Response();
         ~Response();
 
+        static std::map<int, std::string> HTTP_STATUS;
+
         void setHeader(std::string fieldName, std::string value);
-        void setStatus(std::string status);
+        void setStatus(int status);
         void appendToBody(std::string str);
         void send(int fd);
 

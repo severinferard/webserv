@@ -133,7 +133,7 @@ host_port_t Parser::parse_listen(std::ifstream & file)
 	return host_port;
 }
 
-void Parser::parse_error_page(std::ifstream & file, std::vector<error_page_t> & error_pages)
+void Parser::parse_error_page(std::ifstream & file, std::map<int, error_page_t> & error_pages)
 {
 	std::string token;
 	std::vector<std::string> tokens;
@@ -157,7 +157,7 @@ void Parser::parse_error_page(std::ifstream & file, std::vector<error_page_t> & 
 	for (size_t i = 0; i < tokens.size() - 1; i++)
 	{	
 		error_page.code = atoi(tokens[i].c_str());
-		error_pages.push_back(error_page);
+		error_pages[error_page.code] = error_page;
 	}
 }
 
@@ -213,6 +213,16 @@ std::string					Parser::parse_client_body_temp_path(std::ifstream & file)
 	return token;
 }
 
+void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
+{
+	error_page_t page;
+
+	page.code = 404;
+	page.ret = 404;
+	page.path = DEFAULT_ERROR_PAGE_404;
+	error_pages[404] = page;
+}
+
 location_t					Parser::parse_location(std::ifstream & file)
 {
 	std::string	token;
@@ -221,6 +231,7 @@ location_t					Parser::parse_location(std::ifstream & file)
 	ret.client_body_temp_path = -1;
 
 	ret.modifier = PATH_NO_MODIFIDER;
+	
 	token = get_next_token(file);
 	if (token == "=") {
 		ret.modifier = PATH_STRICT;
@@ -268,7 +279,7 @@ server_config_t 			Parser::parse_server(std::ifstream & file)
 	ret.client_max_body_size = DEFAULT_CLIENT_MAX_BODY_SIZE;
 
 	assert_next_token(file, "{");
-
+	init_error_pages(ret.error_pages);
 	token = get_next_token(file);
 	while (token.size() && token != "}")
 	{
@@ -344,8 +355,8 @@ void Parser::print_server(server_config_t server)
 	PRINT_STRING_VECTOR(server.index);
 
 	std::cout << "error_pages: " << std::endl;
-	for (std::vector<error_page_t>::const_iterator i = server.error_pages.begin(); i != server.error_pages.end(); ++i) {
-		std::cout << "\t" << i->code << " " << i->ret << " " << i->path << std::endl;
+	for (std::map<int, error_page_t>::const_iterator i = server.error_pages.begin(); i != server.error_pages.end(); ++i) {
+		std::cout << "\t" << i->second.code << " " << i->second.ret << " " << i->second.path << std::endl;
 	}
 
 	std::cout << "allowed_methods: ";
