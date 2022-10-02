@@ -80,7 +80,7 @@
                 {
                     client = sock->acceptConnection();
                     client->bindCore(this);
-                    std::cout << "New client connected on endpoint " << client->socket->get_host().c_str() << ":" << client->socket->get_port() << " from " << client->addr << ":" << client->port << std::endl;
+                    
                     registerFd(client->connection_fd, POLLIN, client);
                 }
                 else

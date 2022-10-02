@@ -43,7 +43,7 @@ int    Socket::listen(int backlog)
             throw AddressAlreadyInUseException(_port);
         throw std::runtime_error("ERROR on binding");
     }
-    printf("Listening on %s:%u\n", _host.c_str(), _port);
+    Logger::Log(InfoP, "Listening on %s:%u", _host.c_str(), _port);
     ::listen(_fd, backlog);
     return _fd;
 }

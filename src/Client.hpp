@@ -14,6 +14,7 @@
 # include <sstream>
 # include <sstream>
 # include <sys/stat.h>
+# include "Logger.hpp"
 
 #include <stdio.h>
 #include <sys/types.h>
@@ -70,6 +71,8 @@ class Client
 		void			_handlePut(void);
 		void			_handleDelete(void);
 		void			_autoIndex(std::string uri, std::string path);
+		
+		void		Log(LogLevel level, const char* format, ...);
 		
 
 	public:

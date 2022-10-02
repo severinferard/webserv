@@ -13,11 +13,6 @@ const server_config_t     &Server::get_config(void) const
     return _config;
 }
 
-void                Server::send_file(std::string path)
-{
-
-}
-
 const location_t          *Server::findLocation(std::string uri)
 {
     std::vector<std::string> uriParsed = splitstr(uri, "/");

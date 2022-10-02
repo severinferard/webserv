@@ -1,6 +1,14 @@
 #include "Client.hpp"
 char Client::_buffer[BUFFER_SIZE];
 
+void		Client::Log(LogLevel level, const char* format, ...)
+{
+    va_list args;
+    va_start(args, format);
+    Logger::LogClient(level, connection_fd, format, args);
+    va_end(args);
+}
+
 Client::Client(std::string addr, int port, const Socket *socket, int fd):
     _status(STATUS_WAIT_FOR_REQUEST),
     addr(addr),
@@ -8,6 +16,7 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     socket(socket),
     connection_fd(fd)
 {
+   Client::Log(InfoP, "New client connected on endpoint %s:%u from %s:%d\n", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
 Client::~Client()
@@ -23,7 +32,7 @@ void			Client::_handleGet(void)
         filepath = joinPath(_location->root, _request.getUri());
     else
         filepath = joinPath(_server->get_config().root, _request.getUri());
-    std::cout << "filepath: " << filepath << std::endl;
+    Log(DebugP, "filepath: %s", filepath.c_str());
 
     if (uriIsDirectory(filepath))
         {
@@ -37,7 +46,7 @@ void			Client::_handleGet(void)
             // If no index can be found, check if directory listing is enabled
             if (_file_fd < 0 && ((_location && _location->autoindex) || _server->get_config().autoindex) )
             {
-                std::cout << "Serving Autoindex\n";
+                Log(DebugP, "Serving Autoindex");
                 _autoIndex(_request.getUri(), filepath);
                 _response.setStatus(HTTP_STATUS_SUCCESS);
                 _status = STATUS_WAIT_TO_SEND;
@@ -132,11 +141,11 @@ void			Client::_onReadToReadRequest(void)
         std::cout << _request << std::endl;
         // Find the server using the entry socket and server_name
         _server = findServer();
-        std::cout << "root: " << _server->get_config().root << std::endl;
+        Log(DebugP, "root: %s", _server->get_config().root.c_str());
 
         // Checking if the current route match a location block
         _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
-        std::cout << "location: " << (_location ? _location->path : "No location") << std::endl;
+        Log(DebugP, "location: %s", (_location ? _location->path.c_str() : "No location"));
 
         // Checking if the HTTP methods are restricted for this route
         method = _request.getMethod();
@@ -203,12 +212,12 @@ void        Client::resume(void)
     {
         error_page_t errorPage;
 
-        std::cerr << "HTTP Error: " << e.status << " " << Response::HTTP_STATUS[e.status] << '\n';
+        Log(ErrorP, "HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
         if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
             errorPage = _location->error_pages.at(e.status);
         else
             errorPage =  _server->get_config().error_pages.at(e.status);
-        printf("error page %s\n", errorPage.path.c_str());
+        Log(DebugP, "error page %s\n", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
         _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
         _core->registerFd(_file_fd, EPOLLIN, this);

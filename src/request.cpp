@@ -80,7 +80,6 @@ void        Request::_addHeader(std::string line)
 
 void        Request::parse(void)
 {
-    printf("parse\n");
     std::vector<std::string>		lines;
     std::vector<std::string>		req_line;
     std::map<std::string, std::string>	headers;

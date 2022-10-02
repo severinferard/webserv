@@ -28,7 +28,6 @@ public:
     ~Server();
     
     const server_config_t     &get_config(void) const;
-    void                send_file(std::string path);
     const location_t          *findLocation(std::string uri);
     // int                resolveAndOpenFile(std::string uri);
     

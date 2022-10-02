@@ -14,6 +14,8 @@
 #include "./Operation.hpp"
 #include "Core.hpp"
 
+LogLevel Logger::_verbosity = DebugP;
+
 int main(int argc, char **argv)
 {
     std::vector<server_config_t> server_configs;
