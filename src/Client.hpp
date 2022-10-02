@@ -11,7 +11,13 @@
 # include <fcntl.h>
 # include "utils.hpp"
 # include "Core.hpp"
-#include <sstream>
+# include <sstream>
+# include <sstream>
+# include <sys/stat.h>
+
+#include <stdio.h>
+#include <sys/types.h>
+#include <dirent.h>
 
 #define HTTP_STATUS_SUCCESS 200
 #define HTTP_STATUS_NOT_FOUND 404
@@ -20,6 +26,7 @@
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
 	STATUS_WAIT_TO_READ_FILE,
+	STATUS_WAIT_TO_READ_DIR,
 	STATUS_WAIT_TO_SEND,
 }           ClientStatus_t;
 
@@ -62,6 +69,7 @@ class Client
 		void			_handlePost(void);
 		void			_handlePut(void);
 		void			_handleDelete(void);
+		void			_autoIndex(std::string uri, std::string path);
 		
 
 	public:

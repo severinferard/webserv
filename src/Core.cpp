@@ -145,6 +145,7 @@
         ev.data.fd = fd;
         if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
         {
+            printf("%s\n", strerror(errno));
             throw std::runtime_error("Error registering fd with epoll");
         }
         _clients[fd] = client;

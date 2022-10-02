@@ -37,10 +37,8 @@ void			Client::_handleGet(void)
             // If no index can be found, check if directory listing is enabled
             if (_file_fd < 0 && ((_location && _location->autoindex) || _server->get_config().autoindex) )
             {
-
-                // PROVISOIRE
-                std::cout << "AUTOINDEX\n";
-                _response.appendToBody("<h1>Autoindex</h1>");
+                std::cout << "Serving Autoindex\n";
+                _autoIndex(_request.getUri(), filepath);
                 _response.setStatus(HTTP_STATUS_SUCCESS);
                 _status = STATUS_WAIT_TO_SEND;
                 _core->modifyFd(connection_fd, EPOLLOUT);
@@ -74,7 +72,6 @@ void			Client::_handleDelete(void)
 {
     throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
 }
-
 
 
 int     Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
