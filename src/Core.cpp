@@ -37,8 +37,7 @@
 
         for (std::vector<Server>::iterator server = _servers.begin(); server != _servers.end(); server++)
         {
-            server_config_t server_config = server->get_config();
-            for (std::vector<host_port_t>::iterator addr = server_config.listen_on.begin(); addr != server_config.listen_on.end(); addr++)
+            for (std::vector<host_port_t>::const_iterator addr = server->listen_on.begin(); addr != server->listen_on.end(); addr++)
             {
                 sock = new Socket(addr->host, addr->port);
                 sock->add_server(&(*server));

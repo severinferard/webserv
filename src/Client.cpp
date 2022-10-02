@@ -31,7 +31,7 @@ void			Client::_handleGet(void)
     if (_location && !_location->root.empty())
         filepath = joinPath(_location->root, _request.getUri());
     else
-        filepath = joinPath(_server->get_config().root, _request.getUri());
+        filepath = joinPath(_server->root, _request.getUri());
     Log(DebugP, "filepath: %s", filepath.c_str());
 
     if (uriIsDirectory(filepath))
@@ -41,10 +41,10 @@ void			Client::_handleGet(void)
             if (_location && !_location->index.empty())
                 _file_fd = _findIndex(filepath, _location->index);
             // If no index found on the location level, check if the server provides an index that is found in this directory.
-            else if ( !_server->get_config().index.empty())
-                _file_fd = _findIndex(filepath, _server->get_config().index);
+            else if ( !_server->indexes.empty())
+                _file_fd = _findIndex(filepath, _server->indexes);
             // If no index can be found, check if directory listing is enabled
-            if (_file_fd < 0 && ((_location && _location->autoindex) || _server->get_config().autoindex) )
+            if (_file_fd < 0 && ((_location && _location->autoindex) || _server->autoindex) )
             {
                 Log(DebugP, "Serving Autoindex");
                 _autoIndex(_request.getUri(), filepath);
@@ -141,7 +141,7 @@ void			Client::_onReadToReadRequest(void)
         std::cout << _request << std::endl;
         // Find the server using the entry socket and server_name
         _server = findServer();
-        Log(DebugP, "root: %s", _server->get_config().root.c_str());
+        Log(DebugP, "root: %s", _server->root.c_str());
 
         // Checking if the current route match a location block
         _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
@@ -151,7 +151,7 @@ void			Client::_onReadToReadRequest(void)
         method = _request.getMethod();
         allowedMethods = _location && !_location->allowed_methods.empty()
             ? _location->allowed_methods
-            : _server->get_config().allowed_methods;
+            : _server->allowed_methods;
         
         // If so, return 405 if the method is not allowed
         if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
@@ -216,7 +216,7 @@ void        Client::resume(void)
         if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
             errorPage = _location->error_pages.at(e.status);
         else
-            errorPage =  _server->get_config().error_pages.at(e.status);
+            errorPage =  _server->error_pages.at(e.status);
         Log(DebugP, "error page %s\n", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
         _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
@@ -242,8 +242,7 @@ Server *			Client::findServer(void)
     // 1. Listen specificity - check if both the IP and port are set
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
-        const server_config_t config = (*it)->get_config();
-        for (std::vector<host_port_t>::const_iterator listen_it = config.listen_on.begin(); listen_it < config.listen_on.end(); listen_it++)
+        for (std::vector<host_port_t>::const_iterator listen_it = (*it)->listen_on.begin(); listen_it < (*it)->listen_on.end(); listen_it++)
         {
             // Check if this "listen" directive fits the current client socket and if so check wether both IP and port are set.
             if (listen_it->host == socket->get_host() && listen_it->port == socket->get_port() && (listen_it->hostIsSet && listen_it->portIsSet))
@@ -255,8 +254,7 @@ Server *			Client::findServer(void)
         // 1.5. Listen specificity - check if the address is defined
         for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
         {
-            const server_config_t config = (*it)->get_config();
-            for (std::vector<host_port_t>::const_iterator listen_it = config.listen_on.begin(); listen_it < config.listen_on.end(); listen_it++)
+            for (std::vector<host_port_t>::const_iterator listen_it = (*it)->listen_on.begin(); listen_it < (*it)->listen_on.end(); listen_it++)
             {
                 // Check if this "listen" directive fits the current client socket and if so check wether both IP and port are set.
                 if (listen_it->host == socket->get_host() && listen_it->port == socket->get_port() && listen_it->hostIsSet)
@@ -282,10 +280,9 @@ Server *			Client::findServer(void)
     // 2. server_name exact match
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
-        const server_config_t config = (*it)->get_config();
         // Check if we can find the hostname in the server's server_name vector.
         // return directly if an exact match is found as nginx uses the first match.
-        if (std::find(config.server_names.begin(), config.server_names.end(), hostName) != config.server_names.end())
+        if (std::find((*it)->server_names.begin(), (*it)->server_names.end(), hostName) != (*it)->server_names.end())
             return *it;
     }
 
@@ -295,10 +292,9 @@ Server *			Client::findServer(void)
 
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
-        const server_config_t config = (*it)->get_config();
         size_t longestMatch = 0; // store the longest match yet for this server.
         // Iterate over each server_name
-        for (std::vector<std::string>::const_iterator name_it = config.server_names.begin(); name_it < config.server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
         {
             // Check if the server_name starts with a '*', ignore otherwise
             if (name_it->at(0) != '*')
@@ -339,9 +335,8 @@ Server *			Client::findServer(void)
     matches.clear();
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
-        const server_config_t config = (*it)->get_config();
         size_t longestMatch = 0;
-        for (std::vector<std::string>::const_iterator name_it = config.server_names.begin(); name_it < config.server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
         {
             if (name_it->at(name_it->size() - 1) != '*')
                 continue;
