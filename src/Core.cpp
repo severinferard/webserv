@@ -44,7 +44,7 @@
                 sock->add_server(&(*server));
                 try
                 {
-                    _registerFd(sock->listen(), POLLIN);
+                    registerFd(sock->listen(), POLLIN);
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
@@ -79,25 +79,21 @@
                 if ((sock = _getListeningSocket(event.data.fd)))
                 {
                     client = sock->acceptConnection();
+                    client->bindCore(this);
                     std::cout << "New client connected on endpoint " << client->socket->get_host().c_str() << ":" << client->socket->get_port() << " from " << client->addr << ":" << client->port << std::endl;
-                    _clients[client->connection_fd] = client;
-                    _registerFd(client->connection_fd, POLLIN);
+                    registerFd(client->connection_fd, POLLIN, client);
                 }
                 else
                 {
                     client = _findClient(event.data.fd);
-                    client->resume(_epoll_fd, &_clients);
+                    client->resume();
                 }
                 
             }
-            catch (ConnectionResetByPeerException &e)
+            catch (std::exception &e)
             {
                 std::cout << e.what() << std::endl;
             }
-            // catch (std::exception &e)
-            // {
-
-            // }
         }
     }
 
@@ -128,7 +124,8 @@
         return false;
     }
 
-    void    WebservCore::_registerFd(int fd, uint32_t events)
+
+    void    WebservCore::registerFd(int fd, uint32_t events)
     {
         struct epoll_event ev;
 
@@ -140,7 +137,20 @@
         }
     }
 
-    void    WebservCore::_modifyFd(int fd, uint32_t events)
+    void    WebservCore::registerFd(int fd, uint32_t events, Client *client)
+    {
+        struct epoll_event ev;
+
+        ev.events = events;
+        ev.data.fd = fd;
+        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
+        {
+            throw std::runtime_error("Error registering fd with epoll");
+        }
+        _clients[fd] = client;
+    }
+
+    void    WebservCore::modifyFd(int fd, uint32_t events)
     {
         struct epoll_event ev;
 
@@ -150,6 +160,11 @@
         {
             throw std::runtime_error("Error registering fd with epoll");
         }
+    }
+
+        void    WebservCore::unregisterFd(int fd)
+    {
+        _clients.erase(fd);
     }
 
     Socket *WebservCore:: _getListeningSocket(int fd)

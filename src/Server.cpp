@@ -38,7 +38,7 @@ const location_t          *Server::findLocation(std::string uri)
         {
             // Compare each field up to the last one.
             unsigned int i = 0;
-            while (i < locParsed.size())
+            while (i < locParsed.size() -  1)
             {
                 if (uriParsed[i] != locParsed[i] && locParsed[i] != "*")
                     break;

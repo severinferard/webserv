@@ -14,7 +14,6 @@
 # include <poll.h>
 
 # include "Server.hpp"
-# include "exceptions.hpp"
 # include "Client.hpp"
 
 class Server;

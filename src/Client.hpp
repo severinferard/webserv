@@ -10,7 +10,12 @@
 # include "epoll.h"
 # include <fcntl.h>
 # include "utils.hpp"
+# include "Core.hpp"
 #include <sstream>
+
+#define HTTP_STATUS_SUCCESS 200
+#define HTTP_STATUS_NOT_FOUND 404
+#define HTTP_STATUS_METHOD_NOT_ALLOWED 405
 
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
@@ -37,30 +42,6 @@ class HttpError : public std::runtime_error {
 		~HttpError() throw() {}
 };
 
-// class HttpError401 : public HttpError {
-// 	public:
-// 		HttpError401(): HttpError("Http Error: 401 Length Required"){};
-// 		~HttpError401() throw() {}
-// };
-
-// class HttpError403 : public HttpError {
-// 	public:
-// 		HttpError403(): HttpError("Http Error: 403 Forbidden"){};
-// 		~HttpError403() throw() {}
-// };
-
-// class HttpError404 : public HttpError {
-// 	public:
-// 		HttpError404(): HttpError("Http Error: 404 Not Found"){};
-// 		~HttpError404() throw() {}
-// };
-
-// class HttpError405 : public HttpError {
-// 	public:
-// 		HttpError405(): HttpError("Http Error: 405 Method not allowed"){};
-// 		~HttpError405() throw() {}
-// };
-
 class Client
 {
 	private:
@@ -70,8 +51,17 @@ class Client
 		Response		_response;
 		Server			*_server;
 		location_t		*_location;
+		WebservCore		*_core;
 
 		int				_file_fd;
+		void			_onReadToReadRequest();
+		void			_onReadToReadFile();
+		void			_onReadToSend();
+		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
+		void			_handleGet(void);
+		void			_handlePost(void);
+		void			_handlePut(void);
+		void			_handleDelete(void);
 		
 
 	public:
@@ -84,8 +74,9 @@ class Client
 		~Client();
 		Server *			findServer(void);
 		bool				readFileToResponseBody(void);
-		int   				readRequest(void);
-		void				resume(int epoll_fd, std::map<int, Client *> *clients);
+		Request   			readRequest(void);
+		void				resume();
+		void				bindCore(WebservCore *core);
 
 };
 

@@ -65,20 +65,20 @@ std::string Parser::assert_next_token(std::ifstream & file, std::string value)
 	return token;
 }
 
-std::vector<http_methods_e> Parser::parse_allowed_methods(std::ifstream & file)
+std::vector<std::string> Parser::parse_allowed_methods(std::ifstream & file)
 {
 	std::string token = get_next_token(file);
-	std::vector<http_methods_e> ret;
+	std::vector<std::string> ret;
 
 	while (token.size() && token != ";") {
 		if (token == "GET")
-			ret.push_back(GET);
+			ret.push_back("GET");
 		else if (token == "HEAD")
-			ret.push_back(HEAD);
+			ret.push_back("HEAD");
 		else if (token == "POST")
-			ret.push_back(POST);
+			ret.push_back("POST");
 		else if (token == "DELETE")
-			ret.push_back(DELETE);
+			ret.push_back("DELETE");
 		token = get_next_token(file);
 	}
 	return ret;
@@ -221,6 +221,11 @@ void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
 	page.ret = 404;
 	page.path = DEFAULT_ERROR_PAGE_404;
 	error_pages[404] = page;
+
+	page.code = 405;
+	page.ret = 405;
+	page.path = DEFAULT_ERROR_PAGE_405;
+	error_pages[405] = page;
 }
 
 location_t					Parser::parse_location(std::ifstream & file)
@@ -360,7 +365,7 @@ void Parser::print_server(server_config_t server)
 	}
 
 	std::cout << "allowed_methods: ";
-	for (std::vector<http_methods_e>::const_iterator i = server.allowed_methods.begin(); i != server.allowed_methods.end(); ++i) {
+	for (std::vector<std::string>::const_iterator i = server.allowed_methods.begin(); i != server.allowed_methods.end(); ++i) {
 		std::cout << *i << " ";
 	}
 	std::cout << std::endl;

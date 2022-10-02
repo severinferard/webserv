@@ -22,6 +22,8 @@
 
 #define EPOLL_TIMEOUT 10000
 
+class Client;
+class Socket;
 class WebservCore {
 
 private:
@@ -34,8 +36,6 @@ private:
     void                            _startListeningSockets(void);
     bool                            _isListeningSocket(int fd);
     Socket *                        _getListeningSocket(int fd);
-    void                            _registerFd(int fd, uint32_t events);
-    void                            _modifyFd(int fd, uint32_t events);
     Client *                        _findClient(int fd);
     
 public:
@@ -44,6 +44,10 @@ public:
 
     void                            setup(std::vector<server_config_t> config);
     void                            run(void);
+    void                            registerFd(int fd, uint32_t events, Client *client);
+    void                            registerFd(int fd, uint32_t events);
+    void                            modifyFd(int fd, uint32_t events);
+    void                            unregisterFd(int fd);
     
 
 };

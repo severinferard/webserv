@@ -14,18 +14,85 @@ Client::~Client()
 {
 }
 
-int       openFile(std::string filename)
+void			Client::_handleGet(void)
 {
-    int ret = ::open(filename.c_str(), O_RDONLY);
-    if (ret >= 0)
-        return ret;
-    std::cout << strerror(errno) << std::endl;
-    throw HttpError(404);
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->get_config().root, _request.getUri());
+    std::cout << "filepath: " << filepath << std::endl;
+
+    if (uriIsDirectory(filepath))
+        {
+            _file_fd = -1;
+            // Check if the location provides an index that is found in this directory.
+            if (_location && !_location->index.empty())
+                _file_fd = _findIndex(filepath, _location->index);
+            // If no index found on the location level, check if the server provides an index that is found in this directory.
+            else if ( !_server->get_config().index.empty())
+                _file_fd = _findIndex(filepath, _server->get_config().index);
+            // If no index can be found, check if directory listing is enabled
+            if (_file_fd < 0 && ((_location && _location->autoindex) || _server->get_config().autoindex) )
+            {
+
+                // PROVISOIRE
+                std::cout << "AUTOINDEX\n";
+                _response.appendToBody("<h1>Autoindex</h1>");
+                _response.setStatus(HTTP_STATUS_SUCCESS);
+                _status = STATUS_WAIT_TO_SEND;
+                _core->modifyFd(connection_fd, EPOLLOUT);
+                return;
+            }
+            // Otherwise the bad fd will be catched downstream and raise a 404.
+        }
+        else
+        {
+            _file_fd = ::open(filepath.c_str(), O_RDONLY);
+        }
+        
+        if (_file_fd <= 0)
+            throw HttpError(HTTP_STATUS_NOT_FOUND);
+        _status = STATUS_WAIT_TO_READ_FILE;
+        _response.setStatus(HTTP_STATUS_SUCCESS);
+        _core->registerFd(_file_fd, EPOLLIN, this);
+}
+
+void			Client::_handlePost(void)
+{
+    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+}
+
+void			Client::_handlePut(void)
+{
+    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+}
+
+void			Client::_handleDelete(void)
+{
+    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
 }
 
 
 
-int        Client::readRequest(void)
+int     Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
+{
+    int fd;
+    std::string path;
+
+    for (std::vector<std::string>::const_iterator it = candidates.begin(); it != candidates.end(); it++)
+    {
+        path = joinPath(dir, *it);
+        if ((fd = ::open(path.c_str(), O_RDONLY)) > 0)
+            return fd;
+    }
+    return -1;
+}
+
+
+Request        Client::readRequest(void)
 {
     int ret = recv(connection_fd, _buffer, BUFFER_SIZE, 0);
     if (ret <= 0)
@@ -33,41 +100,13 @@ int        Client::readRequest(void)
         close(connection_fd);
         if (ret == 0)
             throw ConnectionResetByPeerException(socket, connection_fd);
-        else if (ret == -1)
+        else
             throw std::runtime_error("Error reading request");
-        return -1; //ignored
     }
     else
     {
         _buffer[ret] = 0;
-        _request = Request(connection_fd, _buffer);
-        _request.parse();
-        std::cout << _request << std::endl;
-        _server = findServer();
-        std::cout << "root: " << _server->get_config().root << std::endl;
-        _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
-        std::string filepath;
-        if (_location)
-            std::cout << "location: " << _location->path << std::endl;
-        else
-            std::cout << "location: No location" << std::endl;
-
-        if (_location && !_location->root.empty())
-            filepath = joinPath(_location->root, _request.getUri());
-        else
-            filepath = joinPath(_server->get_config().root, _request.getUri());
-        std::cout << "filepath: " << filepath << std::endl;
-        if (uriIsDirectory(filepath))
-        {
-            printf("IS DIR\n");
-            return -1;
-        }
-        else
-        {
-            _file_fd = openFile(filepath);
-            return (_file_fd);
-        }
-
+        return Request(connection_fd, _buffer);
     }
 }
 
@@ -85,40 +124,78 @@ bool	Client::readFileToResponseBody(void)
     return false;
 }
 
-void        Client::resume(int epoll_fd, std::map<int, Client *> *clients)
+void			Client::_onReadToReadRequest(void)
 {
-    bool            empty;
+        std::string method;
+        std::vector<std::string> allowedMethods;
 
+        // Read and parse the request
+        _request = readRequest();
+        _request.parse();
+        std::cout << _request << std::endl;
+        // Find the server using the entry socket and server_name
+        _server = findServer();
+        std::cout << "root: " << _server->get_config().root << std::endl;
+
+        // Checking if the current route match a location block
+        _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
+        std::cout << "location: " << (_location ? _location->path : "No location") << std::endl;
+
+        // Checking if the HTTP methods are restricted for this route
+        method = _request.getMethod();
+        allowedMethods = _location && !_location->allowed_methods.empty()
+            ? _location->allowed_methods
+            : _server->get_config().allowed_methods;
+        
+        // If so, return 405 if the method is not allowed
+        if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
+            throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+        
+        if (method == "GET")
+            _handleGet();
+        else if (method == "POST")
+            _handlePost();
+        else if (method == "PUT")
+            _handlePut();
+        else if (method == "DELETE")
+            _handleDelete();
+        
+}
+
+void			Client::_onReadToReadFile(void)
+{
+    bool empty = readFileToResponseBody();
+    if (empty)
+    {
+        _status = STATUS_WAIT_TO_SEND;
+        _core->unregisterFd(_file_fd);
+        _core->modifyFd(connection_fd, EPOLLOUT);
+    }
+}
+
+void			Client::_onReadToSend(void)
+{
+    _response.send(connection_fd);
+    close(connection_fd);
+    _core->unregisterFd(connection_fd);
+}
+
+void        Client::resume(void)
+{
     try
     {
         switch (_status)
         {
         case STATUS_WAIT_FOR_REQUEST:
-            if (readRequest() > 0)
-            {
-                _status = STATUS_WAIT_TO_READ_FILE;
-                _response.setStatus(200);
-                registerFd(epoll_fd, _file_fd, EPOLLIN);
-                (*clients)[_file_fd] = this;
-            }
-            else
-                throw HttpError(404);
+            _onReadToReadRequest();
             break;
         
         case STATUS_WAIT_TO_READ_FILE:
-            empty = readFileToResponseBody();
-            if (empty)
-            {
-                _status = STATUS_WAIT_TO_SEND;
-                clients->erase(_file_fd);
-                modifyFd(epoll_fd, connection_fd, EPOLLOUT);
-            }
+            _onReadToReadFile();
             break;
         
         case STATUS_WAIT_TO_SEND:
-            _response.send(connection_fd);
-            close(connection_fd);
-            clients->erase(connection_fd);
+            _onReadToSend();
             break;
 
         default:
@@ -131,15 +208,18 @@ void        Client::resume(int epoll_fd, std::map<int, Client *> *clients)
 
         std::cerr << "HTTP Error: " << e.status << " " << Response::HTTP_STATUS[e.status] << '\n';
         if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
-            errorPage = _location->error_pages[e.status];
+            errorPage = _location->error_pages.at(e.status);
         else
             errorPage =  _server->get_config().error_pages.at(e.status);
         printf("error page %s\n", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
-        _file_fd = openFile(errorPage.path);
-        registerFd(epoll_fd, _file_fd, EPOLLIN);
-        (*clients)[_file_fd] = this;
+        _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
+        _core->registerFd(_file_fd, EPOLLIN, this);
         _status = STATUS_WAIT_TO_READ_FILE;
+    }
+    catch (ConnectionResetByPeerException &e)
+    {
+        std::cout << e.what() << std::endl;
     }
     
 }
@@ -157,7 +237,6 @@ Server *			Client::findServer(void)
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
         const server_config_t config = (*it)->get_config();
-        // printf("linsten on %ld\n", config.listen_on.size());
         for (std::vector<host_port_t>::const_iterator listen_it = config.listen_on.begin(); listen_it < config.listen_on.end(); listen_it++)
         {
             // Check if this "listen" directive fits the current client socket and if so check wether both IP and port are set.
@@ -286,4 +365,9 @@ Server *			Client::findServer(void)
     
     // If no server is found, fallback to the default server.
     return candidates.front();
+}
+
+void				Client::bindCore(WebservCore *core)
+{
+    _core = core;
 }
