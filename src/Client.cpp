@@ -16,7 +16,7 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     socket(socket),
     connection_fd(fd)
 {
-   Client::Log(InfoP, "New client connected on endpoint %s:%u from %s:%d\n", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
+   Client::Log(InfoP, "New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
 Client::~Client()

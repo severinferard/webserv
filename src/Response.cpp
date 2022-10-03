@@ -37,14 +37,14 @@ void Response::send(int fd)
 {
     setHeader("Content-Type", "text/html");
     setHeader("Content-Length", toString(_body.size()));
-    setHeader("Connection", "Closed");
+    setHeader("Connection", "close");
 
-    _payload += "HTTP/1.1 " + toString(_status) + " " + HTTP_STATUS[_status] + "\n\r";
+    _payload += "HTTP/1.1 " + toString(_status) + " " + HTTP_STATUS[_status] + "\r\n";
 
     for (std::map<std::string, std::string>::const_iterator it = _headers.begin(); it != _headers.end(); it++)
-        _payload += it->first + ": " + it->second + "\n\r";
+        _payload += it->first + ": " + it->second + "\r\n";
 
-    _payload += "\n\r";
+    _payload += "\r\n";
     _payload += _body;
     ::send(fd, _payload.c_str(), _payload.size(), 0);
 }
