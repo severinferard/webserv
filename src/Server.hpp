@@ -12,7 +12,6 @@
 # include <netinet/in.h>
 # include <arpa/inet.h>
 # include "config.hpp"
-# include "Operation.hpp"
 # include "Response.hpp"
 # include "Request.hpp"
 

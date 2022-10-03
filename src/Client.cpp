@@ -103,11 +103,7 @@ Request        Client::readRequest(void)
     int ret = recv(connection_fd, _buffer, BUFFER_SIZE, 0);
     if (ret <= 0)
     {
-        close(connection_fd);
-        if (ret == 0)
-            throw ConnectionResetByPeerException(socket, connection_fd);
-        else
-            throw std::runtime_error("Error reading request");
+        throw ConnectionResetByPeerException(socket, connection_fd);
     }
     else
     {
@@ -228,6 +224,9 @@ void        Client::resume(void)
     catch (ConnectionResetByPeerException &e)
     {
         std::cout << e.what() << std::endl;
+        Log(InfoP, "Closing");
+        close(connection_fd);
+        _core->unregisterFd(connection_fd);
     }
     
 }
