@@ -5,7 +5,7 @@
 #include <vector>
 #include <map>
 #include <iomanip>
-#include "epoll.h"
+// #include "epoll.h"
 #include <sstream>
 #include <sys/stat.h>
 #define WHITESPACE " \t\r\n\v\f"
@@ -19,8 +19,6 @@ void print_headers(std::map<std::string, std::string> headers);
 std::string joinstr(std::vector<std::string> strs, std::string delim);
 bool uriIsDirectory(std::string uri);
 bool isValidHttpMethod(std::string method);
-void    registerFd(int epoll_fd, int fd, uint32_t events);
-void    modifyFd(int epoll_fd, int fd, uint32_t events);
 std::string toString(const unsigned long& value);
 std::string joinPath(const std::string &left, const std::string &right);
 

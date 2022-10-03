@@ -3,9 +3,7 @@
 
     WebservCore::WebservCore()
     {
-        _epoll_fd = epoll_create(1);
-        if (_epoll_fd < 0)
-            throw std::runtime_error("Failed creating epoll fd");
+        // _pollfds.reserve(10000000);
     }
 
     WebservCore::~WebservCore()
@@ -61,7 +59,6 @@
 
     void WebservCore::run(void)
     {
-        struct epoll_event  event;
 
         int                 ready;
         Request             request;
@@ -73,19 +70,24 @@
         while (true)
         {
             try {
-                if (!(ready = epoll_wait(_epoll_fd, &event, 1, EPOLL_TIMEOUT)))
+                if (!(ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT)))
                     continue;
-                if ((sock = _getListeningSocket(event.data.fd)))
+                for (size_t i = 0; i < _pollfds.size(); i++)
                 {
-                    client = sock->acceptConnection();
-                    client->bindCore(this);
-                    
-                    registerFd(client->connection_fd, POLLIN, client);
-                }
-                else
-                {
-                    client = _findClient(event.data.fd);
-                    client->resume();
+                    if (!_pollfds[i].revents)
+                        continue;
+                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
+                    {
+                        client = sock->acceptConnection();
+                        client->bindCore(this);
+                        
+                        registerFd(client->connection_fd, POLLIN, client);
+                    }
+                    else
+                    {
+                        client = _findClient(_pollfds[i].fd);
+                        client->resume();
+                    }
                 }
                 
             }
@@ -93,6 +95,12 @@
             {
                 std::cout << e.what() << std::endl;
             }
+        }
+        for (std::vector<Socket>::iterator it = _sockets.begin(); it < _sockets.end(); it++)
+        {
+            int t = 1;
+            close(it->get_fd());
+            setsockopt(it->get_fd(),SOL_SOCKET,SO_REUSEADDR,&t,sizeof(int));
         }
     }
 
@@ -126,44 +134,40 @@
 
     void    WebservCore::registerFd(int fd, uint32_t events)
     {
-        struct epoll_event ev;
+        struct pollfd pfd;
 
-        ev.events = events;
-        ev.data.fd = fd;
-        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
-        {
-            throw std::runtime_error("Error registering fd with epoll");
-        }
+        pfd.fd = fd;
+        pfd.events = events;
+        _pollfds.push_back(pfd);
     }
 
     void    WebservCore::registerFd(int fd, uint32_t events, Client *client)
     {
-        struct epoll_event ev;
+        struct pollfd pfd;
 
-        ev.events = events;
-        ev.data.fd = fd;
-        if (epoll_ctl(_epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
-        {
-            printf("%s\n", strerror(errno));
-            throw std::runtime_error("Error registering fd with epoll");
-        }
+        pfd.fd = fd;
+        pfd.events = events;
+        _pollfds.push_back(pfd);
+
         _clients[fd] = client;
     }
 
     void    WebservCore::modifyFd(int fd, uint32_t events)
     {
-        struct epoll_event ev;
-
-        ev.events = events;
-        ev.data.fd = fd;
-        if (epoll_ctl(_epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
+        for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
         {
-            throw std::runtime_error("Error registering fd with epoll");
+            if (it->fd == fd)
+                it->events = events;
         }
     }
 
-        void    WebservCore::unregisterFd(int fd)
+    void    WebservCore::unregisterFd(int fd)
     {
+        for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
+        {
+            if (it->fd == fd)
+                _pollfds.erase(it);
+        }
         _clients.erase(fd);
     }
 

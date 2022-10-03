@@ -50,7 +50,7 @@ void			Client::_handleGet(void)
                 _autoIndex(_request.getUri(), filepath);
                 _response.setStatus(HTTP_STATUS_SUCCESS);
                 _status = STATUS_WAIT_TO_SEND;
-                _core->modifyFd(connection_fd, EPOLLOUT);
+                _core->modifyFd(connection_fd, POLLOUT);
                 return;
             }
             // Otherwise the bad fd will be catched downstream and raise a 404.
@@ -64,7 +64,7 @@ void			Client::_handleGet(void)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
         _status = STATUS_WAIT_TO_READ_FILE;
         _response.setStatus(HTTP_STATUS_SUCCESS);
-        _core->registerFd(_file_fd, EPOLLIN, this);
+        _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handlePost(void)
@@ -175,7 +175,7 @@ void			Client::_onReadToReadFile(void)
     {
         _status = STATUS_WAIT_TO_SEND;
         _core->unregisterFd(_file_fd);
-        _core->modifyFd(connection_fd, EPOLLOUT);
+        _core->modifyFd(connection_fd, POLLOUT);
     }
 }
 
@@ -220,7 +220,7 @@ void        Client::resume(void)
         Log(DebugP, "error page %s\n", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
         _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
-        _core->registerFd(_file_fd, EPOLLIN, this);
+        _core->registerFd(_file_fd, POLLIN, this);
         _status = STATUS_WAIT_TO_READ_FILE;
     }
     catch (ConnectionResetByPeerException &e)

@@ -93,31 +93,6 @@ bool uriIsDirectory(std::string uri)
     return S_ISDIR(pathStat.st_mode);
 }
 
-void    registerFd(int epoll_fd, int fd, uint32_t events)
-{
-    struct epoll_event ev;
-
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
-    {
-        std::cout << strerror(errno) << std::endl;
-        throw std::runtime_error("Error registering fd with epoll");
-    }
-}
-
-void    modifyFd(int epoll_fd, int fd, uint32_t events)
-{
-    struct epoll_event ev;
-
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
-    {
-        throw std::runtime_error("Error registering fd with epoll");
-    }
-}
-
 std::string toString(const unsigned long& value)
 {
     std::ostringstream oss;
