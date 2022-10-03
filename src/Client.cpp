@@ -82,6 +82,68 @@ void			Client::_handleDelete(void)
     throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
 }
 
+void			Client::_handleCgi(void)
+{
+    int link[2];
+    pid_t pid;
+    int status;
+    // char *argv[]
+    // char *envp[] =
+    // {
+    //     "HOME=/",
+    //     "PATH=/bin:/usr/bin",
+    //     "TZ=UTC0",
+    //     "USER=beelzebub",
+    //     "LOGNAME=tarzan",
+    //     0
+    // };
+    std::vector<std::string> args;
+    std::vector<char *> cArgs;
+    std::vector<std::string> env;
+    std::vector<char *> cEnv;
+
+    env.push_back("HTTP_METHOD=GET");
+    args.push_back("./src/ubuntu_cgi_tester");
+    args.push_back("-l");
+
+    cEnv.reserve(env.size());
+    for(size_t i = 0; i < env.size(); ++i)
+        cEnv.push_back(const_cast<char*>(env[i].c_str()));
+    cEnv.push_back(NULL);
+
+    cArgs.reserve(args.size());
+    for(size_t i = 0; i < args.size(); ++i)
+        cArgs.push_back(const_cast<char*>(args[i].c_str()));
+    cArgs.push_back(NULL);
+
+    if (pipe(link) < 0)
+        throw std::runtime_error("Error creating pipe");
+    
+    if ((pid = fork()) == -1)
+        throw std::runtime_error("Error while calling fork()");
+    
+    if (pid == 0)
+    {
+        dup2(link[1], STDERR_FILENO);
+        close(link[0]);
+        close(link[1]);
+        execve(cArgs[0], &cArgs[0], &cEnv[0]);
+        throw std::runtime_error("Execv failed");
+    }
+    else
+    {
+        _cgi_pid = pid;
+        close(link[1]);
+        _file_fd = link[0];
+        _status = STATUS_WAIT_TO_READ_CGI;
+        _core->registerFd(link[0], EPOLLIN, this);
+        // waitpid(pid, &status, 0);
+        
+    }
+    printf("after CGI %d\n", _status);
+    // throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
+}
+
 
 int     Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
 {
@@ -130,7 +192,7 @@ bool	Client::readFileToResponseBody(void)
     return false;
 }
 
-void			Client::_onReadToReadRequest(void)
+void			Client::_onReadyToReadRequest(void)
 {
         std::string method;
         std::vector<std::string> allowedMethods;
@@ -157,7 +219,10 @@ void			Client::_onReadToReadRequest(void)
         if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
             throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
         
-        if (method == "GET")
+        // If the route contains a cgi_pass directive, forward the request to the CGI.
+        if (_location && !_location->cgi_pass.empty())
+            _handleCgi();
+        else if (method == "GET")
             _handleGet();
         else if (method == "POST")
             _handlePost();
@@ -165,10 +230,11 @@ void			Client::_onReadToReadRequest(void)
             _handlePut();
         else if (method == "DELETE")
             _handleDelete();
+        printf("end of _onReadyToReadRequest %d\n", _status);
         
 }
 
-void			Client::_onReadToReadFile(void)
+void			Client::_onReadyToReadFile(void)
 {
     bool empty = readFileToResponseBody();
     if (empty)
@@ -179,31 +245,74 @@ void			Client::_onReadToReadFile(void)
     }
 }
 
-void			Client::_onReadToSend(void)
+void			Client::_onReadyToSend(void)
 {
     _response.send(connection_fd);
     close(connection_fd);
     _core->unregisterFd(connection_fd);
 }
 
+void            Client::_onReadyToReadCgi(void)
+{
+    int status;
+
+    printf("CGI READY\n");
+    int size = read(_file_fd, _buffer, BUFFER_SIZE);
+    _buffer[size] = 0;
+    printf("%d %s\n", size, _buffer);
+    if (size > 0)
+    {
+        _response.appendToBody(_buffer);
+    } else if (size < 0)
+    {
+        throw std::runtime_error("Error reading CGI ouput");
+    }
+    else
+    {
+        pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
+        if (finished > 0)
+        {
+            printf("finished %d %d %d\n", finished, WIFEXITED(status), WEXITSTATUS(status));
+            close(_file_fd);
+            _core->unregisterFd(_file_fd);
+            _status = STATUS_WAIT_TO_SEND;
+            _response.setStatus(HTTP_STATUS_SUCCESS);
+            _core->modifyFd(connection_fd, EPOLLOUT);
+            return;
+        }
+        else if (finished < 0)
+            throw std::runtime_error("waitpid error");
+        // if finished == 0, the cgi hasnt finished yet
+    }
+
+}
+
 void        Client::resume(void)
 {
+    printf("here\n");
     try
     {
         switch (_status)
         {
         case STATUS_WAIT_FOR_REQUEST:
-            _onReadToReadRequest();
+            printf("STATUS_WAIT_FOR_REQUEST\n");
+            _onReadyToReadRequest();
             break;
         
         case STATUS_WAIT_TO_READ_FILE:
-            _onReadToReadFile();
+        printf("STATUS_WAIT_TO_READ_FILE\n");
+            _onReadyToReadFile();
             break;
         
         case STATUS_WAIT_TO_SEND:
-            _onReadToSend();
+        printf("STATUS_WAIT_TO_SEND\n");
+            _onReadyToSend();
             break;
 
+        case STATUS_WAIT_TO_READ_CGI:
+        printf("STATUS_WAIT_TO_READ_CGI\n");
+            _onReadyToReadCgi();
+            break;
         default:
             break;
         }

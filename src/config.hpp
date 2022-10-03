@@ -15,6 +15,7 @@
 
 #define DEFAULT_ERROR_PAGE_404 "./src/www/errors/404.html"
 #define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
+#define DEFAULT_ERROR_PAGE_501 "./src/www/errors/501.html"
 
 typedef struct  host_port_s {
     bool        hostIsSet;
@@ -44,6 +45,7 @@ typedef struct              location_s {
     std::vector<std::string> allowed_methods;
     bool                        autoindex;
     std::string                 client_body_temp_path;
+    std::string                 cgi_pass;
 }                           location_t;
 
 typedef struct              server_config_s {
@@ -52,10 +54,11 @@ typedef struct              server_config_s {
     std::string                 root;
     std::vector<std::string>    index;
     std::vector<location_t>     locations;
-    std::map<int, error_page_t>   error_pages;
+    std::map<int, error_page_t> error_pages;
     int                         client_max_body_size;
-    std::vector<std::string> allowed_methods;
+    std::vector<std::string>    allowed_methods;
     int                         autoindex;
+    std::string                 cgi_pass;
 }                           server_config_t;
 
 #endif /* CONFIG_HPP */

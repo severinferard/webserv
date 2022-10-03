@@ -16,6 +16,9 @@
 # include <sys/stat.h>
 # include "Logger.hpp"
 
+#include <sys/wait.h>
+
+
 #include <stdio.h>
 #include <sys/types.h>
 #include <dirent.h>
@@ -23,11 +26,12 @@
 #define HTTP_STATUS_SUCCESS 200
 #define HTTP_STATUS_NOT_FOUND 404
 #define HTTP_STATUS_METHOD_NOT_ALLOWED 405
+#define HTTP_STATUS_NOT_IMPLEMENTED 501
 
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
 	STATUS_WAIT_TO_READ_FILE,
-	STATUS_WAIT_TO_READ_DIR,
+	STATUS_WAIT_TO_READ_CGI,
 	STATUS_WAIT_TO_SEND,
 }           ClientStatus_t;
 
@@ -62,16 +66,19 @@ class Client
 		WebservCore		*_core;
 
 		int				_file_fd;
-		void			_onReadToReadRequest();
-		void			_onReadToReadFile();
-		void			_onReadToSend();
+		pid_t			_cgi_pid;
+		void			_onReadyToReadRequest();
+		void			_onReadyToReadFile();
+		void			_onReadyToSend();
+		void			_onReadyToReadCgi();
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
 		void			_handlePost(void);
 		void			_handlePut(void);
 		void			_handleDelete(void);
+		void			_handleCgi(void);
 		void			_autoIndex(std::string uri, std::string path);
-		
+
 		void		Log(LogLevel level, const char* format, ...);
 		
 

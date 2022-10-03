@@ -226,6 +226,11 @@ void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
 	page.ret = 405;
 	page.path = DEFAULT_ERROR_PAGE_405;
 	error_pages[405] = page;
+
+	page.code = 501;
+	page.ret = 501;
+	page.path = DEFAULT_ERROR_PAGE_501;
+	error_pages[501] = page;
 }
 
 location_t					Parser::parse_location(std::ifstream & file)
@@ -267,6 +272,8 @@ location_t					Parser::parse_location(std::ifstream & file)
 			ret.autoindex = parse_autoindex(file);
 		} else if (token == "client_body_temp_path") {
 			ret.client_body_temp_path = parse_client_body_temp_path(file);
+		} else if (token == "cgi_pass") {
+			ret.cgi_pass = parse_cgi_pass(file);
 		} else {
 			throw UnknownDirectiveException(token, get_current_line(file));
 		}
@@ -307,8 +314,9 @@ server_config_t 			Parser::parse_server(std::ifstream & file)
 			ret.allowed_methods = parse_allowed_methods(file);
 		} else if (directive_name == "autoindex") {
 			ret.autoindex = parse_autoindex(file);
-		}
-		else {
+		} else if (token == "cgi_pass") {
+			ret.cgi_pass = parse_cgi_pass(file);
+		} else {
 			throw UnknownDirectiveException(directive_name, get_current_line(file));
 		}
 		
@@ -377,9 +385,17 @@ void Parser::print_server(server_config_t server)
 		std::cout << "\t" << "index: ";
 		PRINT_STRING_VECTOR(i->index);
 		std::cout << "\t" << "autoindex: " << i->autoindex << std::endl;
+		std::cout << "\t" << "cgi_pass: " << i->cgi_pass << std::endl;
 	}
 
 	std::cout << std::endl << std::endl;
+}
+
+std::string					Parser::parse_cgi_pass(std::ifstream & file)
+{
+	std::string ret = get_next_token(file);
+	assert_next_token(file, ";");
+	return ret;
 }
 
 /*

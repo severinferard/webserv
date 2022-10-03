@@ -45,7 +45,7 @@ _CYAN=\x1b[36m
 _WHITE=\x1b[37m
 
 ifeq ($(USE_DOCKER), 1)
-	CONTEXT = docker run --name $(DOCKER_CONTAINER_NAME) -v $(shell pwd):/root/webserv -w /root/webserv $(DOCKER_EXPOSED_PORTS_CMD) --rm -i -t --init $(DOCKER_IMAGE)
+	CONTEXT = docker run --name $(DOCKER_CONTAINER_NAME) -v $(shell pwd):/root/webserv -w /root/webserv $(DOCKER_EXPOSED_PORTS_CMD) --platform linux/x86_64 --rm -i -t --init $(DOCKER_IMAGE)
 endif
 
 $(OBJDIR)/%.o: %.cpp

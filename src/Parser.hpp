@@ -134,6 +134,7 @@ class Parser
 		std::vector<std::string> parse_allowed_methods(std::ifstream & file);
 		bool						parse_autoindex(std::ifstream & file);
 		std::string					parse_client_body_temp_path(std::ifstream & file);
+		std::string					parse_cgi_pass(std::ifstream & file);
 };
 
 
