@@ -41,7 +41,7 @@
                 sock->add_server(&(*server));
                 try
                 {
-                    registerFd(sock->listen(), POLLIN);
+                    registerFd(sock->listen(1000), POLLIN);
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
@@ -76,7 +76,7 @@
                 {
                     if (!_pollfds[i].revents)
                         continue;
-                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
+                    if ((sock = _getListeningSocket(_pollfds[i].fd)))
                     {
                         client = sock->acceptConnection();
                         client->bindCore(this);

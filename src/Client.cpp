@@ -138,7 +138,7 @@ void			Client::_onReadToReadRequest(void)
         // Read and parse the request
         _request = readRequest();
         _request.parse();
-        std::cout << _request << std::endl;
+        // std::cout << _request << std::endl;
         // Find the server using the entry socket and server_name
         _server = findServer();
         Log(DebugP, "root: %s", _server->root.c_str());
@@ -181,7 +181,9 @@ void			Client::_onReadToReadFile(void)
 
 void			Client::_onReadToSend(void)
 {
+    Log(InfoP, "Sending response");
     _response.send(connection_fd);
+    Log(InfoP, "Closing");
     close(connection_fd);
     _core->unregisterFd(connection_fd);
 }
