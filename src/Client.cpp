@@ -23,13 +23,21 @@ Client::~Client()
 {
 }
 
+std::string getLocationRelativeRoute(location_t location, std::string route)
+{
+    std::string ret = route.substr(location.path.size(), route.size() - location.path.size());
+    return ret;
+}
+
 void			Client::_handleGet(void)
 {
     std::string filepath;
 
     // Generate the file path from the configured root
     if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, _request.getUri());
+    {
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+    }
     else
         filepath = joinPath(_server->root, _request.getUri());
     Log(DebugP, "filepath: %s", filepath.c_str());
