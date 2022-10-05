@@ -14,8 +14,11 @@ Response::~Response()
 void Response::_initHttpStatus(void)
 {
     Response::HTTP_STATUS[200] = "OK";
-    Response::HTTP_STATUS[404] = "Not Found";
+    Response::HTTP_STATUS[400] = "Bad Request";
     Response::HTTP_STATUS[403] = "Forbidden";
+    Response::HTTP_STATUS[404] = "Not Found";
+    Response::HTTP_STATUS[405] = "Method Not Allowed";
+    Response::HTTP_STATUS[501] = "Not Implemented";
 }
 
 void Response::setHeader(std::string fieldName, std::string value)

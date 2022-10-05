@@ -1,4 +1,5 @@
 # include "Request.hpp"
+#include "Client.hpp"
 
 Request::Request()
 {
@@ -49,21 +50,19 @@ std::string Request::getPayload(void) const
     return _payload;
 }
 
-void        Request::_addHeader(std::string line)
+bool        Request::_addHeader(std::string line)
 {
     std::string	name;
     std::string	value;
     size_t	i;
 
     i = line.find(':');
-    if (i == std::string::npos) {
-	    std::cout << "400 Bad Request" << '\n';
-    }
+    if (i == std::string::npos)
+	return false;
 
     name = tolowerstr(line.substr(0, i));
-    if (has_whitespace(name)) {
-	std::cout << "400 Bad Request" << '\n';
-    }
+    if (has_whitespace(name))
+	return false;
     //std::cout << '[' << name << ']' << '\n';
 
     value = trimstr(line.substr(i+1));
@@ -73,6 +72,8 @@ void        Request::_addHeader(std::string line)
 	    _headers[name] = value;
     else
 	    _headers[name] += "," + value;
+
+    return true;
 }
 
 #include <iterator>
@@ -89,37 +90,52 @@ void        Request::parse(void)
     lines = splitstr(_payload, "\r\n");
     req_line = splitstr(lines[0], " ");
 
-    if (req_line.size() != 3 ||
-        has_whitespace(req_line) ||
-        !isValidHttpMethod(req_line[0]))
-    {
-        std::cout << "400 Bad Request" << '\n';
-        throw std::runtime_error("bad request");
+    if (req_line.size() != 3 || has_whitespace(req_line)) {
+	return;
     }
+
     _method = req_line[0];
     _uri = req_line[1];
     _version = req_line[2];
 
     // parse headers until empty line
-    for (i = 1; i < lines.size(); i++)
-    {
+    for (i = 1; i < lines.size(); i++) {
         if (lines[i].empty())
             break;
         //std::cout << '[' << lines[i] << ']' << '\n';
-        _addHeader(lines[i]);
+        if (!_addHeader(lines[i])) {
+	    _method.clear();
+	    return;
+	}
     }
     //print_headers(headers);
+    if (!_checkHost() || _payload.find("\r\n\r\n") == std::string::npos) {
+	_method.clear();
+	return;
+    }
 
     // get body
-    if (i < lines.size() - 1)
-    {
-	    std::vector<std::string> subvec(lines.begin() + i + 1, lines.end());
-	    // read at most Content-Length bytes
-	    body = joinstr(subvec, "\r\n");
-	    //std::cout << '[' << body << "]\n";
+    if (i < lines.size() - 1) {
+	std::vector<std::string> subvec(lines.begin() + i + 1, lines.end());
+	body = joinstr(subvec, "\r\n");
+	if (_headers.find("content-length") != _headers.end()) {
+	    int content_length = atoi(_headers["content-length"].c_str());
+	    body = body.substr(0, content_length);
+	}
+	_body = body;
+	//std::cout << '[' << body << "]\n";
     }
 }
 
+bool	Request::_checkHost() {
+    if (_headers.find("host") != _headers.end()) {
+	if (_headers["host"].find(',') != std::string::npos)
+	    return false;
+    } else {
+	return false;
+    }
+    return true;
+}
 
 std::ostream& operator<<(std::ostream& os, Request const& r) {
     os << std::setw(10) << "Method:    \"" << r.getMethod() << '"' << "\n";

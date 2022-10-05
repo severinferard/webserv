@@ -1,194 +1,194 @@
 #include "Core.hpp"
 
 
-    WebservCore::WebservCore()
+WebservCore::WebservCore()
+{
+    // _pollfds.reserve(10000000);
+}
+
+WebservCore::~WebservCore()
+{
+}
+
+/**
+ * @brief Create the virtual 'Server objects and push them to the _servers vector.
+ * 
+ * @param server_configs vector containing the configuration of each virtual server
+ */
+void WebservCore::setup(std::vector<server_config_t> server_configs)
+{
+    for (std::vector<server_config_t>::iterator config = server_configs.begin(); config != server_configs.end(); config++)
     {
-        // _pollfds.reserve(10000000);
+	Server server(*config);
+	_servers.push_back(server);
     }
+}
 
-    WebservCore::~WebservCore()
+/**
+ * @brief Goes through the configuration of each virtual server and create the corresponding listening sockets based on the 'listen'
+ * directive. The newly created Socket objects are stored in the _sockets vector and ListeningOperation objects are added to the operation queue. 
+ */
+void WebservCore::_startListeningSockets(void)
+{
+    Socket *sock;
+    Socket *existing_socket;
+
+    for (std::vector<Server>::iterator server = _servers.begin(); server != _servers.end(); server++)
     {
+	for (std::vector<host_port_t>::const_iterator addr = server->listen_on.begin(); addr != server->listen_on.end(); addr++)
+	{
+	    sock = new Socket(addr->host, addr->port);
+	    sock->add_server(&(*server));
+	    try
+	    {
+		registerFd(sock->listen(1000), POLLIN);
+		_sockets.push_back(*sock);
+	    }
+	    catch(const AddressAlreadyInUseException& e)
+	    {                    
+		delete sock;
+		existing_socket = _findSocketOnPort(addr->port);
+		if (existing_socket)
+		    existing_socket->add_server(&(*server));
+		else
+		    throw (e);
+	    }
+	}
     }
+}
 
-    /**
-     * @brief Create the virtual 'Server objects and push them to the _servers vector.
-     * 
-     * @param server_configs vector containing the configuration of each virtual server
-     */
-    void WebservCore::setup(std::vector<server_config_t> server_configs)
+void WebservCore::run(void)
+{
+
+    int                 ready;
+    Request             request;
+    Socket              *sock;
+    Client              *client;
+
+    _startListeningSockets();
+
+    while (true)
     {
-        for (std::vector<server_config_t>::iterator config = server_configs.begin(); config != server_configs.end(); config++)
-        {
-            Server server(*config);
-           _servers.push_back(server);
-        }
-    }
+	try {
+	    if (!(ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT)))
+		continue;
+	    for (size_t i = 0; i < _pollfds.size(); i++)
+	    {
+		if (!_pollfds[i].revents)
+		    continue;
+		if ((sock = _getListeningSocket(_pollfds[i].fd)))
+		{
+		    client = sock->acceptConnection();
+		    client->bindCore(this);
 
-    /**
-     * @brief Goes through the configuration of each virtual server and create the corresponding listening sockets based on the 'listen'
-     * directive. The newly created Socket objects are stored in the _sockets vector and ListeningOperation objects are added to the operation queue. 
-     */
-    void WebservCore::_startListeningSockets(void)
+		    registerFd(client->connection_fd, POLLIN, client);
+		}
+		else
+		{
+		    client = _findClient(_pollfds[i].fd);
+		    client->resume();
+		}
+	    }
+
+	}
+	catch (std::exception &e)
+	{
+	    std::cout << e.what() << std::endl;
+	}
+    }
+    for (std::vector<Socket>::iterator it = _sockets.begin(); it < _sockets.end(); it++)
     {
-        Socket *sock;
-        Socket *existing_socket;
-
-        for (std::vector<Server>::iterator server = _servers.begin(); server != _servers.end(); server++)
-        {
-            for (std::vector<host_port_t>::const_iterator addr = server->listen_on.begin(); addr != server->listen_on.end(); addr++)
-            {
-                sock = new Socket(addr->host, addr->port);
-                sock->add_server(&(*server));
-                try
-                {
-                    registerFd(sock->listen(1000), POLLIN);
-                    _sockets.push_back(*sock);
-                }
-                catch(const AddressAlreadyInUseException& e)
-                {                    
-                    delete sock;
-                    existing_socket = _findSocketOnPort(addr->port);
-                    if (existing_socket)
-                        existing_socket->add_server(&(*server));
-                    else
-                        throw (e);
-                }
-            }
-        }
+	int t = 1;
+	close(it->get_fd());
+	setsockopt(it->get_fd(),SOL_SOCKET,SO_REUSEADDR,&t,sizeof(int));
     }
+}
 
-    void WebservCore::run(void)
+
+/**
+ * @brief Return the socket already binded to the passed in port. If no socket is found, NULL is returned.
+ * 
+ * @param port 
+ * @return Socket* or NULL
+ */
+Socket *WebservCore::_findSocketOnPort(uint32_t port)
+{
+    for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
     {
-
-        int                 ready;
-        Request             request;
-        Socket              *sock;
-        Client              *client;
-
-        _startListeningSockets();
-
-        while (true)
-        {
-            try {
-                if (!(ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT)))
-                    continue;
-                for (size_t i = 0; i < _pollfds.size(); i++)
-                {
-                    if (!_pollfds[i].revents)
-                        continue;
-                    if ((sock = _getListeningSocket(_pollfds[i].fd)))
-                    {
-                        client = sock->acceptConnection();
-                        client->bindCore(this);
-                        
-                        registerFd(client->connection_fd, POLLIN, client);
-                    }
-                    else
-                    {
-                        client = _findClient(_pollfds[i].fd);
-                        client->resume();
-                    }
-                }
-                
-            }
-            catch (std::exception &e)
-            {
-                std::cout << e.what() << std::endl;
-            }
-        }
-        for (std::vector<Socket>::iterator it = _sockets.begin(); it < _sockets.end(); it++)
-        {
-            int t = 1;
-            close(it->get_fd());
-            setsockopt(it->get_fd(),SOL_SOCKET,SO_REUSEADDR,&t,sizeof(int));
-        }
+	if (sock->get_port() == port)
+	    return &(*sock);
     }
+    return NULL;
+}
 
-  
-    /**
-     * @brief Return the socket already binded to the passed in port. If no socket is found, NULL is returned.
-     * 
-     * @param port 
-     * @return Socket* or NULL
-     */
-    Socket *WebservCore::_findSocketOnPort(uint32_t port)
+bool    WebservCore::_isListeningSocket(int fd)
+{
+    for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
     {
-        for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
-        {
-            if (sock->get_port() == port)
-                return &(*sock);
-        }
-        return NULL;
+	if (socket_it->get_fd() == fd)
+	    return true;
     }
+    return false;
+}
 
-    bool    WebservCore::_isListeningSocket(int fd)
+
+void    WebservCore::registerFd(int fd, uint32_t events)
+{
+    struct pollfd pfd;
+
+    pfd.fd = fd;
+    pfd.events = events;
+    _pollfds.push_back(pfd);
+}
+
+void    WebservCore::registerFd(int fd, uint32_t events, Client *client)
+{
+    struct pollfd pfd;
+
+    pfd.fd = fd;
+    pfd.events = events;
+    _pollfds.push_back(pfd);
+
+    _clients[fd] = client;
+}
+
+void    WebservCore::modifyFd(int fd, uint32_t events)
+{
+    for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
     {
-        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
-        {
-            if (socket_it->get_fd() == fd)
-                return true;
-        }
-        return false;
+	if (it->fd == fd)
+	    it->events = events;
     }
+}
 
-
-    void    WebservCore::registerFd(int fd, uint32_t events)
+void    WebservCore::unregisterFd(int fd)
+{
+    for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
     {
-        struct pollfd pfd;
-
-        pfd.fd = fd;
-        pfd.events = events;
-        _pollfds.push_back(pfd);
+	if (it->fd == fd)
+	    _pollfds.erase(it);
     }
+    _clients.erase(fd);
+}
 
-    void    WebservCore::registerFd(int fd, uint32_t events, Client *client)
+Socket *WebservCore:: _getListeningSocket(int fd)
+{
+    for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
     {
-        struct pollfd pfd;
-
-        pfd.fd = fd;
-        pfd.events = events;
-        _pollfds.push_back(pfd);
-
-        _clients[fd] = client;
+	if (socket_it->get_fd() == fd)
+	    return &(*socket_it);
     }
+    return NULL;
+}
 
-    void    WebservCore::modifyFd(int fd, uint32_t events)
+Client * WebservCore:: _findClient(int fd)
+{
+    try
     {
-        for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
-        {
-            if (it->fd == fd)
-                it->events = events;
-        }
+	return _clients.at(fd);
     }
-
-    void    WebservCore::unregisterFd(int fd)
+    catch(const std::out_of_range& e)
     {
-        for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
-        {
-            if (it->fd == fd)
-                _pollfds.erase(it);
-        }
-        _clients.erase(fd);
+	return NULL;
     }
-
-    Socket *WebservCore:: _getListeningSocket(int fd)
-    {
-        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
-        {
-            if (socket_it->get_fd() == fd)
-                return &(*socket_it);
-        }
-        return NULL;
-    }
-
-    Client * WebservCore:: _findClient(int fd)
-    {
-        try
-        {
-            return _clients.at(fd);
-        }
-        catch(const std::out_of_range& e)
-        {
-            return NULL;
-        }
-    }
+}

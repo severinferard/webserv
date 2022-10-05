@@ -67,8 +67,23 @@ void			Client::_handleGet(void)
         _core->registerFd(_file_fd, POLLIN, this);
 }
 
-void			Client::_handlePost(void)
-{
+void			Client::_handleHead(void) {
+    _handleGet();
+}
+
+void			Client::_handlePost(void) {
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    Log(DebugP, "filepath: %s", filepath.c_str());
+
+    // pass to CGI
+    // upload file ?
+
     throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
 }
 
@@ -133,15 +148,21 @@ void			Client::_onReadToReadRequest(void)
 
         // Read and parse the request
         _request = readRequest();
-        _request.parse();
-        // std::cout << _request << std::endl;
-        // Find the server using the entry socket and server_name
-        _server = findServer();
-        Log(DebugP, "root: %s", _server->root.c_str());
+	_request.parse();
+	// std::cout << _request << std::endl;
+	// Find the server using the entry socket and server_name
+	_server = findServer();
+	Log(DebugP, "root: %s", _server->root.c_str());
 
         // Checking if the current route match a location block
         _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
         Log(DebugP, "location: %s", (_location ? _location->path.c_str() : "No location"));
+
+	// Check 400 and 501 errors here (instead of _request.parse) because we need _server and _location to be defined
+	if (_request.getMethod().empty())
+            throw HttpError(HTTP_STATUS_BAD_REQUEST);
+	if (!isValidHttpMethod(_request.getMethod()))
+            throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
 
         // Checking if the HTTP methods are restricted for this route
         method = _request.getMethod();
@@ -152,9 +173,11 @@ void			Client::_onReadToReadRequest(void)
         // If so, return 405 if the method is not allowed
         if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
             throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
-        
+
         if (method == "GET")
             _handleGet();
+        else if (method == "HEAD")
+            _handleHead();
         else if (method == "POST")
             _handlePost();
         else if (method == "PUT")
@@ -208,18 +231,18 @@ void        Client::resume(void)
     }
     catch(const HttpError& e)
     {
-        error_page_t errorPage;
+	error_page_t errorPage;
 
-        Log(ErrorP, "HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
-        if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
-            errorPage = _location->error_pages.at(e.status);
-        else
-            errorPage =  _server->error_pages.at(e.status);
-        Log(DebugP, "error page %s\n", errorPage.path.c_str());
-        _response.setStatus(errorPage.code);
-        _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
-        _core->registerFd(_file_fd, POLLIN, this);
-        _status = STATUS_WAIT_TO_READ_FILE;
+	Log(ErrorP, "HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
+	if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
+	    errorPage = _location->error_pages.at(e.status);
+	else
+	    errorPage =  _server->error_pages.at(e.status);
+	Log(DebugP, "error page %s\n", errorPage.path.c_str());
+	_response.setStatus(errorPage.code);
+	_file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
+	_core->registerFd(_file_fd, POLLIN, this);
+	_status = STATUS_WAIT_TO_READ_FILE;
     }
     catch (ConnectionResetByPeerException &e)
     {
@@ -274,6 +297,7 @@ Server *			Client::findServer(void)
     if (host_it == _request.getHeaders().end())
         host_it = _request.getHeaders().find("Host");
     // If the request doesnt contain a Host header, return the first candidate.
+    // TODO: Host header is mandatory -> 400 Bad Request if 0 or more than 1
     if (host_it == _request.getHeaders().end())
         return candidates[0];
     std::string hostName = host_it->second;

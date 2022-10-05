@@ -226,6 +226,16 @@ void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
 	page.ret = 405;
 	page.path = DEFAULT_ERROR_PAGE_405;
 	error_pages[405] = page;
+
+	page.code = 400;
+	page.ret = 400;
+	page.path = DEFAULT_ERROR_PAGE_400;
+	error_pages[400] = page;
+
+	page.code = 501;
+	page.ret = 501;
+	page.path = DEFAULT_ERROR_PAGE_501;
+	error_pages[501] = page;
 }
 
 location_t					Parser::parse_location(std::ifstream & file)

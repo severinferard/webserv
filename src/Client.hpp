@@ -21,8 +21,11 @@
 #include <dirent.h>
 
 #define HTTP_STATUS_SUCCESS 200
+#define HTTP_STATUS_BAD_REQUEST 400
 #define HTTP_STATUS_NOT_FOUND 404
 #define HTTP_STATUS_METHOD_NOT_ALLOWED 405
+#define HTTP_STATUS_INTERNAL_SERVER_ERROR 500
+#define HTTP_STATUS_NOT_IMPLEMENTED 501
 
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
@@ -67,6 +70,7 @@ class Client
 		void			_onReadToSend();
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
+		void			_handleHead(void);
 		void			_handlePost(void);
 		void			_handlePut(void);
 		void			_handleDelete(void);

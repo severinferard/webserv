@@ -39,11 +39,11 @@ class Logger
             std::cout << getTimestamp() << " ";
             if (level >= _verbosity) {
                 switch (level) {
-                case DebugP: std::cout << "     [DEBUG]  "; break;
-                case InfoP: std::cout  << "      [INFO]  "; break;
-                case WarnP: std::cout  << "      [WARN]  "; break;
-                case ErrorP: std::cout << "     [ERROR]  "; break;
-                case FatalP: std::cout << "     [FATAL]  "; break;
+                case DebugP: std::cout <<" \x1b[1;36m[DEBUG]\x1b[0m  "; break;
+                case InfoP: std::cout  << " \x1b[1;34m[INFO]\x1b[0m   "; break;
+                case WarnP: std::cout  << " \x1b[1;33m[WARN]\x1b[0m    "; break;
+                case ErrorP: std::cout << " \x1b[1;31m[ERROR]\x1b[0m  "; break;
+                case FatalP: std::cout << " \x1b[1;31m[FATAL]\x1b[0m  "; break;
                 }
             }
             vprintf(format, args);
@@ -56,11 +56,11 @@ class Logger
             std::cout << std::setw(4) << std::right << fd << " ";
             if (level >= _verbosity) {
                 switch (level) {
-                case DebugP: std::cout <<" [DEBUG]  "; break;
-                case InfoP: std::cout  << " [INFO]  "; break;
-                case WarnP: std::cout  << " [WARN]  "; break;
-                case ErrorP: std::cout << "[ERROR]  "; break;
-                case FatalP: std::cout << "[FATAL]  "; break;
+                case DebugP: std::cout <<" \x1b[1;36m[DEBUG]\x1b[0m  "; break;
+                case InfoP: std::cout  << " \x1b[1;34m[INFO]\x1b[0m   "; break;
+                case WarnP: std::cout  << " \x1b[1;33m[WARN]\x1b[0m    "; break;
+                case ErrorP: std::cout << " \x1b[1;31m[ERROR]\x1b[0m  "; break;
+                case FatalP: std::cout << " \x1b[1;31m[FATAL]\x1b[0m  "; break;
                 }
             }
             vprintf(format, args);

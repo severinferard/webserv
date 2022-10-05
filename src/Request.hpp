@@ -22,7 +22,8 @@ class Request
         std::map<std::string, std::string>  _headers;
         std::string			                _body;
 
-        void _addHeader(std::string line);
+        bool _addHeader(std::string line);
+	bool _checkHost();
     
     public:
         Request();
