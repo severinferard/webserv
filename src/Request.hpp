@@ -30,8 +30,9 @@ class Request
         location_t                         *_location;
         bool                                _headerReceived;
         std::string                         _payload;
+        size_t                              _bodyStart;      
 
-        static void                         _addHeader(std::string line, std::map<std::string, std::string> headers);
+        static void                         _addHeader(std::string line, std::map<std::string, std::string> &headers);
         void                                _setHeaders(std::map<std::string, std::string> headers);
         Server *			                findServer(void);
     public:

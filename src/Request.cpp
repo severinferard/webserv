@@ -1,5 +1,7 @@
 # include "Request.hpp"
 
+static const std::string LINE_DELIMITER = "\r\n";
+
 Request::Request():
 _server(NULL),
 _location(NULL),
@@ -72,7 +74,7 @@ void        Request::_setHeaders(std::map<std::string, std::string> headers)
     _headers = headers;
 }
 
-void        Request::_addHeader(std::string line, std::map<std::string, std::string> headers)
+void        Request::_addHeader(std::string line, std::map<std::string, std::string> &headers)
 {
     std::string	name;
     std::string	value;
@@ -97,16 +99,15 @@ void        Request::_addHeader(std::string line, std::map<std::string, std::str
 std::vector<std::string> splitLines(std::string payload)
 {
     size_t pos;
-    std::string delim = "\r\n";
     std::vector<std::string> ret;
 
     while (payload.size())
     {
-        pos = payload.find(delim, 0);
+        pos = payload.find(LINE_DELIMITER, 0);
         if (pos != std::string::npos)
         {
-            ret.push_back(payload.substr(0, pos + delim.size()));
-            payload.erase(payload.begin(), payload.begin() + pos + delim.length());
+            ret.push_back(payload.substr(0, pos + LINE_DELIMITER.size()));
+            payload.erase(payload.begin(), payload.begin() + pos + LINE_DELIMITER.size());
         }
         else
         {
@@ -135,7 +136,8 @@ int        Request::parse(void)
     std::vector<std::string>            requestLine;
     std::vector<std::string>            allowedMethods;
     std::map<std::string, std::string>  headers;
-    std::string                         body;
+
+    static  uint32_t                    contentLength = 0;
 
     if (!_headerReceived)
     {
@@ -165,20 +167,29 @@ int        Request::parse(void)
 
         
         // Parse headers until empty line or a line not completed
-        for (std::vector<std::string>::iterator it = lines.begin() + 1; it < lines.end(); it++)
+        size_t headerLineCount = 1;
+        printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
+        while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
-            if (isEmptyLine(*it) || !isLineComplete(*it))
-                break;
-            _addHeader(*it, headers);
+            _addHeader(lines[headerLineCount], headers);
+            headerLineCount++;
         }
 
-        // Check if the last line is empty
-        if (isEmptyLine(lines.back()))
+        printf("headerLineCount %ld real %ld\n", headerLineCount, lines.size());
+
+        // Check if we reached the end of the header
+        if (isEmptyLine(lines[headerLineCount]))
         {
             _headerReceived = true;
             _setHeaders(headers);
-            // printf("HEADER RECEIVED\n");
-                // Find the right server and location from the headers data
+
+            printf("payload %s\n", _payload.c_str());
+
+            // Throw 400 if the request doesnt provide a Host header
+            if (!hasKey<std::string, std::string>(headers, "Host") && !hasKey<std::string, std::string>(_headers, "host"))
+                throw HttpError(HTTP_STATUS_BAD_REQUEST);
+
+            // Find the right server and location from the headers data
             _server = findServer();
             DEBUG("root: %s", _server->root.c_str());
 
@@ -193,6 +204,40 @@ int        Request::parse(void)
             // If so, return 405 if the method is not allowed
             if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), _method) == allowedMethods.end())
                 throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+            // for (std::vector<std::string>::iterator it = lines.begin() + headerLineCount + 1; it < lines.end(); it++)
+            // {
+            //     _body.append(*it);
+            // }
+            
+            // Calculate the position of the first character of the body in the payload
+            _bodyStart = 0;
+            for (size_t i = 0; i < headerLineCount; i++)
+                _bodyStart += lines[i].size();
+            _bodyStart += LINE_DELIMITER.size(); // add empty line
+
+            if (_method == "POST")
+            {
+                std::string transferEncoding;
+                if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
+                {
+                    transferEncoding = _headers.at("Transfer-Encoding");
+                    if (transferEncoding != "chunked")
+                        throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+                }
+
+                if (hasKey<std::string, std::string>(_headers, "content-length"))
+                    _headers["Content-Length"] = _headers["content-length"];
+                // Return 411 if the Content-Length header is not set
+                if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "Content-Length"))
+                    throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
+
+                // Read the Content-Length and check if it's valid
+                char *end;
+                contentLength = strtoul(_headers["Content-Length"].c_str(), &end, 10);
+                if (end == _headers["Content-Length"].c_str() || contentLength <= 0)
+                    throw HttpError(HTTP_STATUS_BAD_REQUEST);
+            }
         }
         else
             return false;
@@ -205,15 +250,10 @@ int        Request::parse(void)
     }
     else if (_method == "POST")
     {
-        if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
-        {
-            std::string transferEncoding = _headers.at("Transfer-Encoding");
-            if (transferEncoding != "chunked")
-                throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
-        }
-        // Return 411 if the Content-Length header is not set
-        if (!hasKey<std::string, std::string>(_headers, "Content-Lenght"))
-            throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
+        if (_payload.size() - _bodyStart < contentLength)
+            return false;
+        _body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
+        printf("BODY %s\n", _body.c_str());
     }
     return true;
 }
