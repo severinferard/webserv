@@ -249,7 +249,6 @@ location_t					Parser::parse_location(std::ifstream & file)
 	location_t	ret;
 	ret.autoindex = -1;
 	ret.client_body_temp_path = -1;
-	ret.autoindex = 0;
 
 	ret.modifier = PATH_NO_MODIFIDER;
 	

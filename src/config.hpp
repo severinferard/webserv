@@ -45,7 +45,7 @@ typedef struct              location_s {
     std::vector<std::string>    index;
     std::map<int, error_page_t>   error_pages;
     std::vector<std::string> allowed_methods;
-    bool                        autoindex;
+    int                        autoindex;
     std::string                 client_body_temp_path;
 }                           location_t;
 
