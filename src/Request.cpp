@@ -1,6 +1,9 @@
 # include "Request.hpp"
 
-Request::Request()
+Request::Request():
+_server(NULL),
+_location(NULL),
+_headerReceived(false)
 {
 }
 
@@ -8,6 +11,8 @@ Request::Request(const Socket *sock, int connection_fd):
 _fd(sock->get_fd()),
 __log_fd(connection_fd),
 _socket(sock),
+_server(NULL),
+_location(NULL),
 _headerReceived(false)
 {
     // LOG(DebugP, "new request %d", 42);
@@ -89,9 +94,6 @@ void        Request::_addHeader(std::string line, std::map<std::string, std::str
 	    headers[name] += "," + value;
 }
 
-#include <iterator>
-#define PRINT_STRING_VECTOR(vector) std::copy(vector.begin(), vector.end(), std::ostream_iterator<std::string>(std::cout, " ; ")); std::cout << std::endl;
-
 std::vector<std::string> splitLines(std::string payload)
 {
     size_t pos;
@@ -115,14 +117,14 @@ std::vector<std::string> splitLines(std::string payload)
     return ret;
 }
 
-bool isLineComplete(std::string line)
+static bool isLineComplete(std::string line)
 {
     if (line.size() < 2)
         return false;
     return line.substr(line.size() - 2, 2) == "\r\n";
 }
 
-bool isEmptyLine(std::string line)
+static bool isEmptyLine(std::string line)
 {
     return line == "\r\n";
 }
@@ -145,13 +147,22 @@ int        Request::parse(void)
             return false;
 
         // Parse the first line with method, uri and protocol version and check if it's correct
-        requestLine = splitstr(lines[0], " ");
+        requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         
         _method = requestLine[0];
         _uri = requestLine[1];
         _version = requestLine[2];
+
+        if (_method.empty())
+            throw HttpError(HTTP_STATUS_BAD_REQUEST);
+ 	    if (!isValidHttpMethod(_method))
+            throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
+        
+        if (!isValidHttpVersion(_version))
+            throw HttpError(HTTP_STATUS_VERSION_NOT_SUPPORTED);
+
         
         // Parse headers until empty line or a line not completed
         for (std::vector<std::string>::iterator it = lines.begin() + 1; it < lines.end(); it++)

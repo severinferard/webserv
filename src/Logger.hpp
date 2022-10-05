@@ -7,6 +7,13 @@
 # include <string>
 # include <stdarg.h>
 
+# define COLOR_CYAN "\x1b[1;36m"
+# define COLOR_BLUE "\x1b[1;34m"
+# define COLOR_YELLOW "\x1b[1;33m"
+# define COLOR_RED "\x1b[1;31m"
+# define COLOR_GREEN "\x1b[1;32m"
+# define COLOR_RESET "\x1b[0m"
+
 enum LogLevel {
     DebugP,
     InfoP,
@@ -46,11 +53,11 @@ class Logger
 
                 std::cout << getTimestamp() << " ";
                 switch (level) {
-                case DebugP: std::cout << "       [DEBUG] "; break;
-                case InfoP: std::cout  << "       [INFO]  "; break;
-                case WarnP: std::cout  << "       [WARN]  "; break;
-                case ErrorP: std::cout << "       [ERROR] "; break;
-                case FatalP: std::cout << "       [FATAL] "; break;
+                case DebugP: std::cout << COLOR_CYAN"       [DEBUG] "COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE"       [INFO]  "COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW"       [WARN]  "COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED"       [ERROR] "COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED"       [FATAL] "COLOR_RESET; break;
                 }
                 vprintf(format, args);
                 std::cout << "\n";
@@ -66,11 +73,11 @@ class Logger
                 std::cout << getTimestamp() << " ";
                 std::cout << "CONN" <<std::setw(2) << std::right << fd << " ";
                 switch (level) {
-                case DebugP: std::cout << "[DEBUG] "; break;
-                case InfoP: std::cout  << "[INFO]  "; break;
-                case WarnP: std::cout  << "[WARN]  "; break;
-                case ErrorP: std::cout << "[ERROR] "; break;
-                case FatalP: std::cout << "[FATAL] "; break;
+                case DebugP: std::cout << COLOR_CYAN"[DEBUG] "COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE"[INFO]  "COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW"[WARN]  "COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED"[ERROR] "COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED"[FATAL] "COLOR_RESET; break;
                 }
                 vprintf(format, args);
                 std::cout << "\n";

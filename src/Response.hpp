@@ -14,6 +14,7 @@ class Response
         std::map<std::string, std::string> _headers;
         std::string _payload;
         int _status;
+        bool                                _ignoreBody;
 
         static void _initHttpStatus(void);
     
@@ -28,6 +29,7 @@ class Response
         int getStatus(void) const;
         void appendToBody(std::string str);
         void send(int fd);
+        void setIgnoreBody(bool b);
 
 };
 

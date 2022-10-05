@@ -19,6 +19,8 @@ void Response::_initHttpStatus(void)
     Response::HTTP_STATUS[404] = "Not Found";
     Response::HTTP_STATUS[411] = "Length Required";
     Response::HTTP_STATUS[415] = "Unsupported Media Type";
+    Response::HTTP_STATUS[500] = "Internal Server Error";
+    Response::HTTP_STATUS[501] = "Not Implemented";
 }
 
 void Response::setHeader(std::string fieldName, std::string value)
@@ -41,6 +43,11 @@ int Response::getStatus(void) const
     return _status;
 }
 
+void        Response::setIgnoreBody(bool b)
+{
+    _ignoreBody = b;
+}
+
 void Response::send(int fd)
 {
     setHeader("Content-Type", "text/html");
@@ -53,6 +60,7 @@ void Response::send(int fd)
         _payload += it->first + ": " + it->second + "\r\n";
 
     _payload += "\r\n";
-    _payload += _body;
+    if (!_ignoreBody)           // don't send body on HEAD request
+        _payload += _body;
     ::send(fd, _payload.c_str(), _payload.size(), 0);
 }

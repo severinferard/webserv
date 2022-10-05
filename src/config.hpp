@@ -13,12 +13,6 @@
 # define DEFAULT_LISTENING_PORT 80
 # define DEFAULT_CLIENT_MAX_BODY_SIZE 1000000
 
-#define DEFAULT_ERROR_PAGE_400 "./src/www/errors/400.html"
-#define DEFAULT_ERROR_PAGE_404 "./src/www/errors/404.html"
-#define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
-#define DEFAULT_ERROR_PAGE_411 "./src/www/errors/411.html"
-#define DEFAULT_ERROR_PAGE_415 "./src/www/errors/415.html"
-
 typedef struct  host_port_s {
     bool        hostIsSet;
     bool        portIsSet;

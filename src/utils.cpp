@@ -85,6 +85,11 @@ bool isValidHttpMethod(std::string method)
     return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT";
 }
 
+bool isValidHttpVersion(std::string version)
+{
+    return version == "HTTP/0.9" || version == "HTTP/1.0" || version == "HTTP/1.1";
+}
+
 bool pathExist(std::string path)
 {
     return (access(path.c_str(), F_OK) == 0);

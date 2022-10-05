@@ -1,16 +1,65 @@
 #include "Client.hpp"
 char Client::_buffer[BUFFER_SIZE];
+std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES;
 
 Client::Client(std::string addr, int port, const Socket *socket, int fd):
     _status(STATUS_WAIT_FOR_REQUEST),
+    _server(NULL),
+    _location(NULL),
     __log_fd(fd),
     addr(addr),
     port(port),
     socket(socket),
     connection_fd(fd)
 {
+    _initDefaultErrorPages();
     _request = Request(socket, connection_fd);
     DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
+}
+
+void						Client::_initDefaultErrorPages(void)
+{
+	error_page_t page;
+
+	page.code = 404;
+	page.ret = 404;
+	page.path = DEFAULT_ERROR_PAGE_404;
+	Client::DEFAULT_ERROR_PAGES[404] = page;
+
+	page.code = 405;
+	page.ret = 405;
+	page.path = DEFAULT_ERROR_PAGE_405;
+	Client::DEFAULT_ERROR_PAGES[405] = page;
+
+	page.code = 400;
+	page.ret = 400;
+	page.path = DEFAULT_ERROR_PAGE_400;
+	Client::DEFAULT_ERROR_PAGES[400] = page;
+
+	page.code = 411;
+	page.ret = 411;
+	page.path = DEFAULT_ERROR_PAGE_411;
+	Client::DEFAULT_ERROR_PAGES[411] = page;
+
+	page.code = 415;
+	page.ret = 415;
+	page.path = DEFAULT_ERROR_PAGE_415;
+	Client::DEFAULT_ERROR_PAGES[415] = page;
+
+	page.code = 500;
+	page.ret = 500;
+	page.path = DEFAULT_ERROR_PAGE_500;
+	Client::DEFAULT_ERROR_PAGES[500] = page;
+
+	page.code = 501;
+	page.ret = 501;
+	page.path = DEFAULT_ERROR_PAGE_501;
+	Client::DEFAULT_ERROR_PAGES[501] = page;
+
+    page.code = 505;
+	page.ret = 505;
+	page.path = DEFAULT_ERROR_PAGE_505;
+	Client::DEFAULT_ERROR_PAGES[505] = page;
 }
 
 Client::~Client()
@@ -21,6 +70,11 @@ std::string getLocationRelativeRoute(location_t location, std::string route)
 {
     std::string ret = route.substr(location.path.size(), route.size() - location.path.size());
     return ret;
+}
+
+void			Client::_handleHead(void)
+{
+    _handleGet();
 }
 
 void			Client::_handleGet(void)
@@ -139,11 +193,13 @@ void			Client::_onReadToReadRequest(void)
         // store the server and location of the request locally for convinience
         _server = _request.getServer();
         _location = _request.getLocation();
-        
+    
         // Handle the request according to its method
         method = _request.getMethod();
         if (method == "GET")
             _handleGet();
+        else if (method == "HEAD")
+            _handleHead();
         else if (method == "POST")
             _handlePost();
         else if (method == "PUT")
@@ -166,8 +222,12 @@ void			Client::_onReadToReadFile(void)
 
 void			Client::_onReadToSend(void)
 {
-    INFO("%s:%d - %s %s %d", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
-    DEBUG("Sending response");
+    if (_response.getStatus() == 200)
+        INFO("%s:%d - %s %s "COLOR_GREEN"%d"COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+    else
+        INFO("%s:%d - %s %s "COLOR_RED"%d"COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+    if (_request.getMethod() == "HEAD")
+        _response.setIgnoreBody(true);
     _response.send(connection_fd);
     DEBUG("Closing");
     close(connection_fd);
@@ -202,10 +262,19 @@ void        Client::resume(void)
 
         ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
         if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
+        {
             errorPage = _request.getLocation()->error_pages.at(e.status);
-        else
+        }
+        else if (_request.getServer() && hasKey<int, error_page_t>(_request.getServer()->error_pages, e.status))
+        {
             errorPage =  _request.getServer()->error_pages.at(e.status);
-        DEBUG("error page %s\n", errorPage.path.c_str());
+        }
+        else
+        {
+            DEBUG("No error page found - serving default");
+            errorPage = Client::DEFAULT_ERROR_PAGES[e.status];
+        }
+        DEBUG("Error page: %s", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
         _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
         _core->registerFd(_file_fd, POLLIN, this);
