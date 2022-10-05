@@ -226,6 +226,21 @@ void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
 	page.ret = 405;
 	page.path = DEFAULT_ERROR_PAGE_405;
 	error_pages[405] = page;
+
+	page.code = 400;
+	page.ret = 400;
+	page.path = DEFAULT_ERROR_PAGE_400;
+	error_pages[400] = page;
+
+	page.code = 411;
+	page.ret = 411;
+	page.path = DEFAULT_ERROR_PAGE_411;
+	error_pages[411] = page;
+
+	page.code = 415;
+	page.ret = 415;
+	page.path = DEFAULT_ERROR_PAGE_415;
+	error_pages[415] = page;
 }
 
 location_t					Parser::parse_location(std::ifstream & file)
@@ -234,6 +249,7 @@ location_t					Parser::parse_location(std::ifstream & file)
 	location_t	ret;
 	ret.autoindex = -1;
 	ret.client_body_temp_path = -1;
+	ret.autoindex = 0;
 
 	ret.modifier = PATH_NO_MODIFIDER;
 	
@@ -356,6 +372,7 @@ void Parser::print_server(server_config_t server)
 
 	std::cout << "root: ";
 	std::cout << server.root << std::endl;
+	std::cout << "autoindex: " << server.autoindex << std::endl;
 	std::cout << "index: ";
 	PRINT_STRING_VECTOR(server.index);
 

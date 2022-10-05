@@ -1,22 +1,16 @@
 #include "Client.hpp"
 char Client::_buffer[BUFFER_SIZE];
 
-void		Client::Log(LogLevel level, const char* format, ...)
-{
-    va_list args;
-    va_start(args, format);
-    Logger::LogClient(level, connection_fd, format, args);
-    va_end(args);
-}
-
 Client::Client(std::string addr, int port, const Socket *socket, int fd):
     _status(STATUS_WAIT_FOR_REQUEST),
+    __log_fd(fd),
     addr(addr),
     port(port),
     socket(socket),
     connection_fd(fd)
 {
-   Client::Log(InfoP, "New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
+    _request = Request(socket, connection_fd);
+    DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
 Client::~Client()
@@ -40,9 +34,11 @@ void			Client::_handleGet(void)
     }
     else
         filepath = joinPath(_server->root, _request.getUri());
-    Log(DebugP, "filepath: %s", filepath.c_str());
+    DEBUG("filepath: %s", filepath.c_str());
 
-    if (uriIsDirectory(filepath))
+    if (!pathExist(filepath))
+        throw HttpError(HTTP_STATUS_NOT_FOUND); 
+    if (isDirectory(filepath))
         {
             _file_fd = -1;
             // Check if the location provides an index that is found in this directory.
@@ -54,7 +50,7 @@ void			Client::_handleGet(void)
             // If no index can be found, check if directory listing is enabled
             if (_file_fd < 0 && ((_location && _location->autoindex) || _server->autoindex) )
             {
-                Log(DebugP, "Serving Autoindex");
+                DEBUG("Serving Autoindex");
                 _autoIndex(_request.getUri(), filepath);
                 _response.setStatus(HTTP_STATUS_SUCCESS);
                 _status = STATUS_WAIT_TO_SEND;
@@ -105,21 +101,6 @@ int     Client::_findIndex(std::string dir, std::vector<std::string> const &cand
     return -1;
 }
 
-
-Request        Client::readRequest(void)
-{
-    int ret = recv(connection_fd, _buffer, BUFFER_SIZE, 0);
-    if (ret <= 0)
-    {
-        throw ConnectionResetByPeerException(socket, connection_fd);
-    }
-    else
-    {
-        _buffer[ret] = 0;
-        return Request(connection_fd, _buffer);
-    }
-}
-
 bool	Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
@@ -139,28 +120,28 @@ void			Client::_onReadToReadRequest(void)
         std::string method;
         std::vector<std::string> allowedMethods;
 
-        // Read and parse the request
-        _request = readRequest();
-        _request.parse();
-        // std::cout << _request << std::endl;
-        // Find the server using the entry socket and server_name
-        _server = findServer();
-        Log(DebugP, "root: %s", _server->root.c_str());
+        char buff[256];
+        int ret;
 
-        // Checking if the current route match a location block
-        _location = const_cast<location_t *>(_server->findLocation(_request.getUri()));
-        Log(DebugP, "location: %s", (_location ? _location->path.c_str() : "No location"));
+        ret = recv(connection_fd, buff, sizeof(buff), 0);
+        if (ret <= 0)
+            throw ConnectionResetByPeerException(socket, connection_fd);
+        else
+        {
+            // Append what we just read to the request payload
+            _request.appendToPayload(buff, ret);
+            // Parse what we already have off the request and return now if we have more to read
+            if (!_request.parse())
+                return;
+        }
 
-        // Checking if the HTTP methods are restricted for this route
+        // If we have read the whole request...
+        // store the server and location of the request locally for convinience
+        _server = _request.getServer();
+        _location = _request.getLocation();
+        
+        // Handle the request according to its method
         method = _request.getMethod();
-        allowedMethods = _location && !_location->allowed_methods.empty()
-            ? _location->allowed_methods
-            : _server->allowed_methods;
-        
-        // If so, return 405 if the method is not allowed
-        if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), method) == allowedMethods.end())
-            throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
-        
         if (method == "GET")
             _handleGet();
         else if (method == "POST")
@@ -185,9 +166,10 @@ void			Client::_onReadToReadFile(void)
 
 void			Client::_onReadToSend(void)
 {
-    Log(InfoP, "Sending response");
+    INFO("%s:%d - %s %s %d", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+    DEBUG("Sending response");
     _response.send(connection_fd);
-    Log(InfoP, "Closing");
+    DEBUG("Closing");
     close(connection_fd);
     _core->unregisterFd(connection_fd);
 }
@@ -218,12 +200,12 @@ void        Client::resume(void)
     {
         error_page_t errorPage;
 
-        Log(ErrorP, "HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
-        if (_location && hasKey<int, error_page_t>(_location->error_pages, e.status))
-            errorPage = _location->error_pages.at(e.status);
+        ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
+        if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
+            errorPage = _request.getLocation()->error_pages.at(e.status);
         else
-            errorPage =  _server->error_pages.at(e.status);
-        Log(DebugP, "error page %s\n", errorPage.path.c_str());
+            errorPage =  _request.getServer()->error_pages.at(e.status);
+        DEBUG("error page %s\n", errorPage.path.c_str());
         _response.setStatus(errorPage.code);
         _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
         _core->registerFd(_file_fd, POLLIN, this);
@@ -232,7 +214,7 @@ void        Client::resume(void)
     catch (ConnectionResetByPeerException &e)
     {
         std::cout << e.what() << std::endl;
-        Log(InfoP, "Closing");
+        DEBUG("Closing");
         close(connection_fd);
         _core->unregisterFd(connection_fd);
     }

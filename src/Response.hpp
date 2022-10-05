@@ -25,6 +25,7 @@ class Response
 
         void setHeader(std::string fieldName, std::string value);
         void setStatus(int status);
+        int getStatus(void) const;
         void appendToBody(std::string str);
         void send(int fd);
 

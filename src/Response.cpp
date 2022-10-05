@@ -14,8 +14,11 @@ Response::~Response()
 void Response::_initHttpStatus(void)
 {
     Response::HTTP_STATUS[200] = "OK";
-    Response::HTTP_STATUS[404] = "Not Found";
+    Response::HTTP_STATUS[400] = "Bad Request";
     Response::HTTP_STATUS[403] = "Forbidden";
+    Response::HTTP_STATUS[404] = "Not Found";
+    Response::HTTP_STATUS[411] = "Length Required";
+    Response::HTTP_STATUS[415] = "Unsupported Media Type";
 }
 
 void Response::setHeader(std::string fieldName, std::string value)
@@ -31,6 +34,11 @@ void Response::appendToBody(std::string str)
 void Response::setStatus(int status)
 {
     _status = status;
+}
+
+int Response::getStatus(void) const
+{
+    return _status;
 }
 
 void Response::send(int fd)

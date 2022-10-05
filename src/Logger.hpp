@@ -15,6 +15,13 @@ enum LogLevel {
     FatalP
 };
 
+# define LOG(...) Logger::Log(__log_fd, __VA_ARGS__)
+# define DEBUG(...) Logger::Log(__log_fd, DebugP, __VA_ARGS__)
+# define INFO(...) Logger::Log(__log_fd, InfoP, __VA_ARGS__)
+# define WARNING(...) Logger::Log(__log_fd, WarnP, __VA_ARGS__)
+# define ERROR(...) Logger::Log(__log_fd, ErrorP, __VA_ARGS__)
+# define FATAL(...) Logger::Log(__log_fd, FatalP, __VA_ARGS__)
+
 class Logger
 {
     private:
@@ -33,38 +40,42 @@ class Logger
         }
     public:
         static void Log(LogLevel level, const char* format, ...) {
-            va_list args;
-            va_start(args, format);
-
-            std::cout << getTimestamp() << " ";
             if (level >= _verbosity) {
+                va_list args;
+                va_start(args, format);
+
+                std::cout << getTimestamp() << " ";
                 switch (level) {
-                case DebugP: std::cout << "     [DEBUG]  "; break;
-                case InfoP: std::cout  << "      [INFO]  "; break;
-                case WarnP: std::cout  << "      [WARN]  "; break;
-                case ErrorP: std::cout << "     [ERROR]  "; break;
-                case FatalP: std::cout << "     [FATAL]  "; break;
+                case DebugP: std::cout << "       [DEBUG] "; break;
+                case InfoP: std::cout  << "       [INFO]  "; break;
+                case WarnP: std::cout  << "       [WARN]  "; break;
+                case ErrorP: std::cout << "       [ERROR] "; break;
+                case FatalP: std::cout << "       [FATAL] "; break;
                 }
+                vprintf(format, args);
+                std::cout << "\n";
+                va_end(args);
             }
-            vprintf(format, args);
-            std::cout << "\n";
-            va_end(args);
         }
 
-        static void LogClient(LogLevel level, int fd, const char* format, va_list args) {
-            std::cout << getTimestamp() << " ";
-            std::cout << std::setw(4) << std::right << fd << " ";
+        static void Log(int fd, LogLevel level, const char* format, ...) {
             if (level >= _verbosity) {
+                va_list args;
+                va_start(args, format);
+
+                std::cout << getTimestamp() << " ";
+                std::cout << "CONN" <<std::setw(2) << std::right << fd << " ";
                 switch (level) {
-                case DebugP: std::cout <<" [DEBUG]  "; break;
-                case InfoP: std::cout  << " [INFO]  "; break;
-                case WarnP: std::cout  << " [WARN]  "; break;
-                case ErrorP: std::cout << "[ERROR]  "; break;
-                case FatalP: std::cout << "[FATAL]  "; break;
+                case DebugP: std::cout << "[DEBUG] "; break;
+                case InfoP: std::cout  << "[INFO]  "; break;
+                case WarnP: std::cout  << "[WARN]  "; break;
+                case ErrorP: std::cout << "[ERROR] "; break;
+                case FatalP: std::cout << "[FATAL] "; break;
                 }
+                vprintf(format, args);
+                std::cout << "\n";
+                va_end(args);
             }
-            vprintf(format, args);
-            std::cout << "\n";
         }
 };
 

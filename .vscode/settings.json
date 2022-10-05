@@ -68,6 +68,7 @@
         "type_traits": "cpp",
         "typeinfo": "cpp",
         "__bits": "cpp",
-        "filesystem": "cpp"
+        "filesystem": "cpp",
+        "__memory": "cpp"
     }
 }

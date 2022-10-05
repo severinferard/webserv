@@ -8,29 +8,39 @@
 # include "utils.hpp"
 # include <iomanip>
 # include "utils.hpp"
+# include "Socket.hpp"
+# include "Logger.hpp"
+# include "HttpError.hpp"
 
 class Server;
+class Socket;
 
 class Request
 {
     private:
         int                                 _fd;
-        std::string                         _payload;
+        int                                 __log_fd;
         std::string                         _method;
         std::string			                _uri;
         std::string			                _version;
         std::map<std::string, std::string>  _headers;
         std::string			                _body;
+        const Socket                             *_socket;
+        Server                             *_server;
+        location_t                         *_location;
+        bool                                _headerReceived;
+        std::string                         _payload;
 
-        void _addHeader(std::string line);
-    
+        static void                         _addHeader(std::string line, std::map<std::string, std::string> headers);
+        void                                _setHeaders(std::map<std::string, std::string> headers);
+        Server *			                findServer(void);
     public:
         Request();
-        Request(int fd, std::string payload);
+        Request(const Socket *sock, int connection_fd);
         ~Request();
 
-        void parse(void);
-
+        int                                 parse(void);
+        void                                appendToPayload(char *str, size_t size);
         std::string                         getPayload(void) const;
         std::string                         getUri(void) const;
         std::string                         getMethod(void) const;
@@ -38,6 +48,8 @@ class Request
         const std::map<std::string, std::string>  &getHeaders(void) const;
         std::string                         getBody(void) const;
         int                                 getFd(void) const;
+        location_t                          *getLocation(void) const;
+        Server                              *getServer(void) const;
 };
 
 std::ostream& operator<<(std::ostream& os, Request const& r);

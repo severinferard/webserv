@@ -85,7 +85,12 @@ bool isValidHttpMethod(std::string method)
     return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT";
 }
 
-bool uriIsDirectory(std::string uri)
+bool pathExist(std::string path)
+{
+    return (access(path.c_str(), F_OK) == 0);
+}
+
+bool isDirectory(std::string uri)
 {
     struct stat pathStat;
 

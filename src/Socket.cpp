@@ -1,4 +1,5 @@
 #include "Socket.hpp"
+#include "Client.hpp"
 
 Socket::Socket()
 {

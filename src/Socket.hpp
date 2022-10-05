@@ -14,7 +14,7 @@
 # include <poll.h>
 
 # include "Server.hpp"
-# include "Client.hpp"
+// # include "Client.hpp"
 
 class Server;
 class ListenOperation;
