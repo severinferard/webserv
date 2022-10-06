@@ -17,10 +17,13 @@ void Response::_initHttpStatus(void)
     Response::HTTP_STATUS[400] = "Bad Request";
     Response::HTTP_STATUS[403] = "Forbidden";
     Response::HTTP_STATUS[404] = "Not Found";
+    Response::HTTP_STATUS[408] = "Request Timeout";
     Response::HTTP_STATUS[411] = "Length Required";
     Response::HTTP_STATUS[415] = "Unsupported Media Type";
     Response::HTTP_STATUS[500] = "Internal Server Error";
     Response::HTTP_STATUS[501] = "Not Implemented";
+    Response::HTTP_STATUS[504] = "Gateway Timeout";
+    Response::HTTP_STATUS[505] = "HTTP Version Not Supported";
 }
 
 void Response::setHeader(std::string fieldName, std::string value)

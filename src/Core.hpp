@@ -21,7 +21,8 @@
 #include <poll.h>
 // #include "epoll.h"
 
-#define EPOLL_TIMEOUT 10000
+#define EPOLL_TIMEOUT 1000
+#define CONNECTION_TIMEOUT_DELAY 10
 
 class Client;
 class Socket;

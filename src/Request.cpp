@@ -219,14 +219,14 @@ int        Request::parse(void)
         
         // Parse headers until empty line or a line not completed
         size_t headerLineCount = 1;
-        printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
+        // printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
         while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
             _addHeader(lines[headerLineCount], headers);
             headerLineCount++;
         }
 
-        printf("headerLineCount %ld real %ld\n", headerLineCount, lines.size());
+        // printf("headerLineCount %ld real %ld\n", headerLineCount, lines.size());
 
         // Check if we reached the end of the header
         if (isEmptyLine(lines[headerLineCount]))

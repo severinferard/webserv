@@ -7,10 +7,12 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     _server(NULL),
     _location(NULL),
     __log_fd(fd),
+    _timedOut(false),
     addr(addr),
     port(port),
     socket(socket),
-    connection_fd(fd)
+    connection_fd(fd),
+    connectionTimestamp(time(NULL))
 {
     _initDefaultErrorPages();
     _request = Request(socket, connection_fd);
@@ -20,6 +22,11 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
 void						Client::_initDefaultErrorPages(void)
 {
 	error_page_t page;
+
+    page.code = 400;
+	page.ret = 400;
+	page.path = DEFAULT_ERROR_PAGE_400;
+	Client::DEFAULT_ERROR_PAGES[400] = page;
 
 	page.code = 404;
 	page.ret = 404;
@@ -31,10 +38,11 @@ void						Client::_initDefaultErrorPages(void)
 	page.path = DEFAULT_ERROR_PAGE_405;
 	Client::DEFAULT_ERROR_PAGES[405] = page;
 
-	page.code = 400;
-	page.ret = 400;
-	page.path = DEFAULT_ERROR_PAGE_400;
-	Client::DEFAULT_ERROR_PAGES[400] = page;
+    
+    page.code = 408;
+	page.ret = 408;
+	page.path = DEFAULT_ERROR_PAGE_408;
+	Client::DEFAULT_ERROR_PAGES[408] = page;
 
 	page.code = 411;
 	page.ret = 411;
@@ -55,6 +63,11 @@ void						Client::_initDefaultErrorPages(void)
 	page.ret = 501;
 	page.path = DEFAULT_ERROR_PAGE_501;
 	Client::DEFAULT_ERROR_PAGES[501] = page;
+
+    page.code = 504;
+	page.ret = 504;
+	page.path = DEFAULT_ERROR_PAGE_504;
+	Client::DEFAULT_ERROR_PAGES[504] = page;
 
     page.code = 505;
 	page.ret = 505;
@@ -234,6 +247,27 @@ void			Client::_onReadToSend(void)
     _core->unregisterFd(connection_fd);
 }
 
+void			Client::_onHttpError(const HttpError& e)
+{
+    error_page_t errorPage;
+
+    ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
+    if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
+        errorPage = _request.getLocation()->error_pages.at(e.status);
+    else if (_request.getServer() && hasKey<int, error_page_t>(_request.getServer()->error_pages, e.status))
+        errorPage =  _request.getServer()->error_pages.at(e.status);
+    else
+    {
+        DEBUG("No error page found - serving default");
+        errorPage = Client::DEFAULT_ERROR_PAGES[e.status];
+    }
+    DEBUG("Error page: %s", errorPage.path.c_str());
+    _response.setStatus(errorPage.code);
+    _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
+    _core->registerFd(_file_fd, POLLIN, this);
+    _status = STATUS_WAIT_TO_READ_FILE;
+}
+
 void        Client::resume(void)
 {
     try
@@ -258,27 +292,7 @@ void        Client::resume(void)
     }
     catch(const HttpError& e)
     {
-        error_page_t errorPage;
-
-        ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
-        if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
-        {
-            errorPage = _request.getLocation()->error_pages.at(e.status);
-        }
-        else if (_request.getServer() && hasKey<int, error_page_t>(_request.getServer()->error_pages, e.status))
-        {
-            errorPage =  _request.getServer()->error_pages.at(e.status);
-        }
-        else
-        {
-            DEBUG("No error page found - serving default");
-            errorPage = Client::DEFAULT_ERROR_PAGES[e.status];
-        }
-        DEBUG("Error page: %s", errorPage.path.c_str());
-        _response.setStatus(errorPage.code);
-        _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
-        _core->registerFd(_file_fd, POLLIN, this);
-        _status = STATUS_WAIT_TO_READ_FILE;
+        _onHttpError(e);
     }
     catch (ConnectionResetByPeerException &e)
     {
@@ -431,4 +445,18 @@ Server *			Client::findServer(void)
 void				Client::bindCore(WebservCore *core)
 {
     _core = core;
+}
+
+void				Client::timeout(void)
+{
+    // Ignore if we're already timedout, and in the process of closing the client to prevent entering an infinite loop.
+    if (_timedOut)
+        return;
+
+    WARNING("Timeout");
+    _timedOut = true;
+    if (_status == STATUS_WAIT_FOR_REQUEST)
+        return _onHttpError(HttpError(HTTP_STATUS_REQUEST_TIMEOUT));
+    return _onHttpError(HttpError(HTTP_STATUS_GATEWAY_TIMEOUT));
+    
 }
