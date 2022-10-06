@@ -11,7 +11,6 @@
 #include <poll.h>
 #include <map>
 #include "./Parser.hpp"
-#include "./Operation.hpp"
 #include "Core.hpp"
 
 LogLevel Logger::_verbosity = DebugP;

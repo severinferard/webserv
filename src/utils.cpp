@@ -85,37 +85,22 @@ bool isValidHttpMethod(std::string method)
     return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT";
 }
 
-bool uriIsDirectory(std::string uri)
+bool isValidHttpVersion(std::string version)
+{
+    return version == "HTTP/0.9" || version == "HTTP/1.0" || version == "HTTP/1.1";
+}
+
+bool pathExist(std::string path)
+{
+    return (access(path.c_str(), F_OK) == 0);
+}
+
+bool isDirectory(std::string uri)
 {
     struct stat pathStat;
 
     stat(uri.c_str(), &pathStat);
     return S_ISDIR(pathStat.st_mode);
-}
-
-void    registerFd(int epoll_fd, int fd, uint32_t events)
-{
-    struct epoll_event ev;
-
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, fd, &ev) == -1)
-    {
-        std::cout << strerror(errno) << std::endl;
-        throw std::runtime_error("Error registering fd with epoll");
-    }
-}
-
-void    modifyFd(int epoll_fd, int fd, uint32_t events)
-{
-    struct epoll_event ev;
-
-    ev.events = events;
-    ev.data.fd = fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &ev) == -1)
-    {
-        throw std::runtime_error("Error registering fd with epoll");
-    }
 }
 
 std::string toString(const unsigned long& value)

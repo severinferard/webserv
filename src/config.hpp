@@ -13,9 +13,6 @@
 # define DEFAULT_LISTENING_PORT 80
 # define DEFAULT_CLIENT_MAX_BODY_SIZE 1000000
 
-#define DEFAULT_ERROR_PAGE_404 "./src/www/errors/404.html"
-#define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
-
 typedef struct  host_port_s {
     bool        hostIsSet;
     bool        portIsSet;
@@ -42,7 +39,7 @@ typedef struct              location_s {
     std::vector<std::string>    index;
     std::map<int, error_page_t>   error_pages;
     std::vector<std::string> allowed_methods;
-    bool                        autoindex;
+    int                        autoindex;
     std::string                 client_body_temp_path;
 }                           location_t;
 

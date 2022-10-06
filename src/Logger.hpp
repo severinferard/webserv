@@ -7,6 +7,13 @@
 # include <string>
 # include <stdarg.h>
 
+# define COLOR_CYAN "\x1b[1;36m"
+# define COLOR_BLUE "\x1b[1;34m"
+# define COLOR_YELLOW "\x1b[1;33m"
+# define COLOR_RED "\x1b[1;31m"
+# define COLOR_GREEN "\x1b[1;32m"
+# define COLOR_RESET "\x1b[0m"
+
 enum LogLevel {
     DebugP,
     InfoP,
@@ -14,6 +21,13 @@ enum LogLevel {
     ErrorP,
     FatalP
 };
+
+# define LOG(...) Logger::Log(__log_fd, __VA_ARGS__)
+# define DEBUG(...) Logger::Log(__log_fd, DebugP, __VA_ARGS__)
+# define INFO(...) Logger::Log(__log_fd, InfoP, __VA_ARGS__)
+# define WARNING(...) Logger::Log(__log_fd, WarnP, __VA_ARGS__)
+# define ERROR(...) Logger::Log(__log_fd, ErrorP, __VA_ARGS__)
+# define FATAL(...) Logger::Log(__log_fd, FatalP, __VA_ARGS__)
 
 class Logger
 {
@@ -33,38 +47,42 @@ class Logger
         }
     public:
         static void Log(LogLevel level, const char* format, ...) {
-            va_list args;
-            va_start(args, format);
-
-            std::cout << getTimestamp() << " ";
             if (level >= _verbosity) {
+                va_list args;
+                va_start(args, format);
+
+                std::cout << getTimestamp() << " ";
                 switch (level) {
-                case DebugP: std::cout << "     [DEBUG]  "; break;
-                case InfoP: std::cout  << "      [INFO]  "; break;
-                case WarnP: std::cout  << "      [WARN]  "; break;
-                case ErrorP: std::cout << "     [ERROR]  "; break;
-                case FatalP: std::cout << "     [FATAL]  "; break;
+                case DebugP: std::cout << COLOR_CYAN"       [DEBUG] "COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE"       [INFO]  "COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW"       [WARN]  "COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED"       [ERROR] "COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED"       [FATAL] "COLOR_RESET; break;
                 }
+                vprintf(format, args);
+                std::cout << "\n";
+                va_end(args);
             }
-            vprintf(format, args);
-            std::cout << "\n";
-            va_end(args);
         }
 
-        static void LogClient(LogLevel level, int fd, const char* format, va_list args) {
-            std::cout << getTimestamp() << " ";
-            std::cout << std::setw(4) << std::right << fd << " ";
+        static void Log(int fd, LogLevel level, const char* format, ...) {
             if (level >= _verbosity) {
+                va_list args;
+                va_start(args, format);
+
+                std::cout << getTimestamp() << " ";
+                std::cout << "CONN" <<std::setw(2) << std::right << fd << " ";
                 switch (level) {
-                case DebugP: std::cout <<" [DEBUG]  "; break;
-                case InfoP: std::cout  << " [INFO]  "; break;
-                case WarnP: std::cout  << " [WARN]  "; break;
-                case ErrorP: std::cout << "[ERROR]  "; break;
-                case FatalP: std::cout << "[FATAL]  "; break;
+                case DebugP: std::cout << COLOR_CYAN"[DEBUG] "COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE"[INFO]  "COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW"[WARN]  "COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED"[ERROR] "COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED"[FATAL] "COLOR_RESET; break;
                 }
+                vprintf(format, args);
+                std::cout << "\n";
+                va_end(args);
             }
-            vprintf(format, args);
-            std::cout << "\n";
         }
 };
 

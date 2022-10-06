@@ -213,21 +213,6 @@ std::string					Parser::parse_client_body_temp_path(std::ifstream & file)
 	return token;
 }
 
-void						Parser::init_error_pages(std::map<int, error_page_t> & error_pages)
-{
-	error_page_t page;
-
-	page.code = 404;
-	page.ret = 404;
-	page.path = DEFAULT_ERROR_PAGE_404;
-	error_pages[404] = page;
-
-	page.code = 405;
-	page.ret = 405;
-	page.path = DEFAULT_ERROR_PAGE_405;
-	error_pages[405] = page;
-}
-
 location_t					Parser::parse_location(std::ifstream & file)
 {
 	std::string	token;
@@ -284,7 +269,6 @@ server_config_t 			Parser::parse_server(std::ifstream & file)
 	ret.client_max_body_size = DEFAULT_CLIENT_MAX_BODY_SIZE;
 
 	assert_next_token(file, "{");
-	init_error_pages(ret.error_pages);
 	token = get_next_token(file);
 	while (token.size() && token != "}")
 	{
@@ -356,6 +340,7 @@ void Parser::print_server(server_config_t server)
 
 	std::cout << "root: ";
 	std::cout << server.root << std::endl;
+	std::cout << "autoindex: " << server.autoindex << std::endl;
 	std::cout << "index: ";
 	PRINT_STRING_VECTOR(server.index);
 
@@ -377,6 +362,7 @@ void Parser::print_server(server_config_t server)
 		std::cout << "\t" << "index: ";
 		PRINT_STRING_VECTOR(i->index);
 		std::cout << "\t" << "autoindex: " << i->autoindex << std::endl;
+		std::cout << "\t" << "error pages: " << i->error_pages.size() << std::endl;
 	}
 
 	std::cout << std::endl << std::endl;

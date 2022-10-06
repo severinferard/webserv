@@ -1,4 +1,5 @@
 #include "Socket.hpp"
+#include "Client.hpp"
 
 Socket::Socket()
 {
@@ -30,6 +31,8 @@ int    Socket::listen(int backlog)
     _fd =  socket(AF_INET, SOCK_STREAM, 0);
     if (_fd < 0) 
         throw std::runtime_error("Error opening socket");
+    int reuseAddr = 1; 
+    setsockopt(_fd, SOL_SOCKET, SO_REUSEADDR, &reuseAddr, sizeof(reuseAddr));
 
     inet_pton(AF_INET, _host.c_str(), &host);
     memset(&serv_addr, 0, sizeof(serv_addr));

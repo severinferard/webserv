@@ -18,7 +18,8 @@
 #include "Client.hpp"
 #include "Socket.hpp"
 #include "Server.hpp"
-#include "epoll.h"
+#include <poll.h>
+// #include "epoll.h"
 
 #define EPOLL_TIMEOUT 10000
 
@@ -30,7 +31,7 @@ private:
     std::vector<Server>             _servers;
     std::vector<Socket>             _sockets;
     std::map<int, Client *>         _clients;
-    int                             _epoll_fd;
+    std::vector<struct pollfd>      _pollfds;
 
     Socket *                        _findSocketOnPort(uint32_t port);
     void                            _startListeningSockets(void);
