@@ -76,6 +76,10 @@ bool        Request::_addHeader(std::string line)
     return true;
 }
 
+static bool check_lfi(const std::string &uri) {
+    return (uri.find("../") != std::string::npos);
+}
+
 #include <iterator>
 #define PRINT_STRING_VECTOR(vector) std::copy(vector.begin(), vector.end(), std::ostream_iterator<std::string>(std::cout, " ; ")); std::cout << std::endl;
 
@@ -90,7 +94,7 @@ void        Request::parse(void)
     lines = splitstr(_payload, "\r\n");
     req_line = splitstr(lines[0], " ");
 
-    if (req_line.size() != 3 || has_whitespace(req_line)) {
+    if (req_line.size() != 3 || has_whitespace(req_line) || check_lfi(req_line[1])) {
 	return;
     }
 

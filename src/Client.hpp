@@ -22,6 +22,7 @@
 
 #define HTTP_STATUS_SUCCESS 200
 #define HTTP_STATUS_BAD_REQUEST 400
+#define HTTP_STATUS_FORBIDDEN 403
 #define HTTP_STATUS_NOT_FOUND 404
 #define HTTP_STATUS_METHOD_NOT_ALLOWED 405
 #define HTTP_STATUS_INTERNAL_SERVER_ERROR 500
@@ -30,6 +31,7 @@
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
 	STATUS_WAIT_TO_READ_FILE,
+	STATUS_WAIT_TO_WRITE_FILE,
 	STATUS_WAIT_TO_READ_DIR,
 	STATUS_WAIT_TO_SEND,
 }           ClientStatus_t;
@@ -57,18 +59,19 @@ class Client
 {
 	private:
 		static char		_buffer[BUFFER_SIZE];
-		ClientStatus_t	_status;
+		ClientStatus_t		_status;
 		Request			_request;
 		Response		_response;
 		Server			*_server;
 		location_t		*_location;
 		WebservCore		*_core;
+		int			_file_fd;
 
-		int				_file_fd;
 		void			_onReadToReadRequest();
 		void			_onReadToReadFile();
+		void			_onReadToWriteFile();
 		void			_onReadToSend();
-		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
+		int			_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
 		void			_handleHead(void);
 		void			_handlePost(void);

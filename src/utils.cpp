@@ -82,7 +82,7 @@ std::string joinstr(std::vector<std::string> strs, std::string delim) {
 
 bool isValidHttpMethod(std::string method)
 {
-    return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT";
+    return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT" || method == "DELETE";
 }
 
 bool uriIsDirectory(std::string uri)

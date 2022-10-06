@@ -81,15 +81,39 @@ void			Client::_handlePost(void) {
         filepath = joinPath(_server->root, _request.getUri());
     Log(DebugP, "filepath: %s", filepath.c_str());
 
-    // pass to CGI
-    // upload file ?
+    // can't do a POST request on a directory
+    if (uriIsDirectory(filepath))
+	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+    // POST requests are not 'idempotent' so we append the body to the file
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handlePut(void)
 {
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    Log(DebugP, "filepath: %s", filepath.c_str());
+
+    // can't do a POST request on a directory
+    if (uriIsDirectory(filepath))
+	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+    // POST requests are not 'idempotent' so we append the body to the file
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handleDelete(void)
@@ -198,6 +222,13 @@ void			Client::_onReadToReadFile(void)
     }
 }
 
+void			Client::_onReadToWriteFile(void) {
+    write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
+    _status = STATUS_WAIT_TO_SEND;
+    _core->unregisterFd(_file_fd);
+    _core->modifyFd(connection_fd, POLLOUT);
+}
+
 void			Client::_onReadToSend(void)
 {
     Log(InfoP, "Sending response");
@@ -219,6 +250,10 @@ void        Client::resume(void)
         
         case STATUS_WAIT_TO_READ_FILE:
             _onReadToReadFile();
+            break;
+
+        case STATUS_WAIT_TO_WRITE_FILE:
+            _onReadToWriteFile();
             break;
         
         case STATUS_WAIT_TO_SEND:
