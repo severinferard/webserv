@@ -24,10 +24,12 @@
 #define DEFAULT_ERROR_PAGE_400 "./src/www/errors/400.html"
 #define DEFAULT_ERROR_PAGE_404 "./src/www/errors/404.html"
 #define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
+#define DEFAULT_ERROR_PAGE_408 "./src/www/errors/408.html"
 #define DEFAULT_ERROR_PAGE_411 "./src/www/errors/411.html"
 #define DEFAULT_ERROR_PAGE_415 "./src/www/errors/415.html"
 #define DEFAULT_ERROR_PAGE_500 "./src/www/errors/500.html"
 #define DEFAULT_ERROR_PAGE_501 "./src/www/errors/501.html"
+#define DEFAULT_ERROR_PAGE_504 "./src/www/errors/504.html"
 #define DEFAULT_ERROR_PAGE_505 "./src/www/errors/505.html"
 
 typedef enum ClientStatus_s {
@@ -62,9 +64,11 @@ class Client
 
 		int				__log_fd;
 		int				_file_fd;
+		bool			_timedOut;
 		void			_onReadToReadRequest();
 		void			_onReadToReadFile();
 		void			_onReadToSend();
+		void			_onHttpError(const HttpError& e);
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
 		void			_handleHead(void);
@@ -80,14 +84,15 @@ class Client
 		const Socket*        socket;
 		const int            connection_fd;
 		static std::map<int, error_page_t>  DEFAULT_ERROR_PAGES;
+		const time_t					connectionTimestamp;
 
 		Client(std::string addr, int port, const Socket *socket, int fd);
 		~Client();
 		Server *			findServer(void);
 		bool				readFileToResponseBody(void);
-		// Request   			readRequest(void);
 		void				resume();
 		void				bindCore(WebservCore *core);
+		void				timeout(void);
 
 };
 

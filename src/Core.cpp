@@ -64,20 +64,22 @@
         Request             request;
         Socket              *sock;
         Client              *client;
+        time_t              now;
 
         _startListeningSockets();
 
         while (true)
         {
             try {
-                if (!(ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT)))
-                    continue;
+                now = time(NULL);
+                ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
+                (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
                 {
-                    if (!_pollfds[i].revents)
-                        continue;
                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
                     {
+                        if (!_pollfds[i].revents)
+                            continue;
                         client = sock->acceptConnection();
                         client->bindCore(this);
                         
@@ -86,7 +88,10 @@
                     else
                     {
                         client = _findClient(_pollfds[i].fd);
-                        client->resume();
+                        if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
+                            client->timeout();
+                        if (_pollfds[i].revents)
+                            client->resume();
                     }
                 }
                 
