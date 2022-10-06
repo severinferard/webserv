@@ -115,7 +115,7 @@ void        Request::parse(void)
     }
 
     // get body
-    if (i < lines.size() - 1) {
+    if (i < lines.size() - 1 && (_method == "POST" || _method == "PUT")) {
 	std::vector<std::string> subvec(lines.begin() + i + 1, lines.end());
 	body = joinstr(subvec, "\r\n");
 	if (_headers.find("content-length") != _headers.end()) {

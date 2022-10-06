@@ -44,7 +44,7 @@ void			Client::_handleGet(void)
             else if ( !_server->indexes.empty())
                 _file_fd = _findIndex(filepath, _server->indexes);
             // If no index can be found, check if directory listing is enabled
-            if (_file_fd < 0 && ((_location && _location->autoindex) || _server->autoindex) )
+            if (_file_fd < 0 && ((_location && _location->autoindex) || _server->autoindex))
             {
                 Log(DebugP, "Serving Autoindex");
                 _autoIndex(_request.getUri(), filepath);
