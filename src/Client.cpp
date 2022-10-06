@@ -118,10 +118,7 @@ void			Client::_handleGet(void)
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
                 DEBUG("Serving Autoindex");
-                _autoIndex(_request.getUri(), filepath);
-                _response.setStatus(HTTP_STATUS_SUCCESS);
-                _status = STATUS_WAIT_TO_SEND;
-                _core->modifyFd(connection_fd, POLLOUT);
+                _setupAutoIndex(_request.getUri(), filepath);
                 return;
             }
             // Otherwise the bad fd will be catched downstream and raise a 404.
@@ -182,7 +179,7 @@ bool	Client::readFileToResponseBody(void)
     return false;
 }
 
-void			Client::_onReadToReadRequest(void)
+void			Client::_onReadyToReadRequest(void)
 {
         std::string method;
         std::vector<std::string> allowedMethods;
@@ -222,7 +219,7 @@ void			Client::_onReadToReadRequest(void)
         
 }
 
-void			Client::_onReadToReadFile(void)
+void			Client::_onReadyToReadFile(void)
 {
     bool empty = readFileToResponseBody();
     if (empty)
@@ -233,7 +230,7 @@ void			Client::_onReadToReadFile(void)
     }
 }
 
-void			Client::_onReadToSend(void)
+void			Client::_onReadyToSend(void)
 {
     if (_response.getStatus() == 200)
         INFO("%s:%d - %s %s "COLOR_GREEN"%d"COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
@@ -245,12 +242,13 @@ void			Client::_onReadToSend(void)
     DEBUG("Closing");
     close(connection_fd);
     _core->unregisterFd(connection_fd);
+    // exit(1);
 }
 
 void			Client::_onHttpError(const HttpError& e)
 {
     error_page_t errorPage;
-
+    _response.clearBody();
     ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
     if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
         errorPage = _request.getLocation()->error_pages.at(e.status);
@@ -275,15 +273,18 @@ void        Client::resume(void)
         switch (_status)
         {
         case STATUS_WAIT_FOR_REQUEST:
-            _onReadToReadRequest();
+            _onReadyToReadRequest();
             break;
         
         case STATUS_WAIT_TO_READ_FILE:
-            _onReadToReadFile();
+            _onReadyToReadFile();
             break;
         
         case STATUS_WAIT_TO_SEND:
-            _onReadToSend();
+            _onReadyToSend();
+            break;
+        case STATUS_WAIT_TO_READ_DIR:
+            _onReadyToReadDir();
             break;
 
         default:

@@ -35,27 +35,13 @@ static std::string             makeLine(std::string path, dirent &node)
     return ss.str();
 }
 
-void			Client::_autoIndex(std::string uri, std::string path)
+void            Client::_setupAutoIndex(std::string uri, std::string path)
 {
-    DIR                         *dp;
-    struct dirent               *ep;
-    std::vector<struct dirent>  nodes;
     std::stringstream           ss;
 
-    dp = opendir(path.c_str());
-    if (dp == NULL)
+    _dp = opendir(path.c_str());
+    if (_dp == NULL)
         throw std::runtime_error("Error opening dir for listing");
-
-    // Store each node in a vector because we need to sort them.
-    while ((ep = readdir(dp)) != NULL)
-        nodes.push_back(*ep);
-    closedir(dp);
-
-    // Remove the "." symlink
-    nodes.erase(std::remove_if(nodes.begin(), nodes.end(), isCurrentDir)), nodes.end();
-
-    // Sort alphabetically and dir first then files
-    std::sort(nodes.begin(), nodes.end(), autoindexSortNodes);
 
     // Write the head
     ss << "<html>" << "\n";
@@ -66,11 +52,39 @@ void			Client::_autoIndex(std::string uri, std::string path)
     ss << "<h1>Index of " + uri + "</h1><hr>" << "\n";
     ss << "<pre>" << "\n";
     _response.appendToBody(ss.str());
+    _core->registerFd(dirfd(_dp), POLLIN, this);
+    _status = STATUS_WAIT_TO_READ_DIR;
+
+}
+
+void			Client::_onReadyToReadDir()
+{
+    struct dirent               *ep;
+    std::stringstream           ss;
+    
+    // Store each node in a vector because we need to sort them.
+    if ((ep = readdir(_dp)) != NULL)
+    {
+        _autoindexNodes.push_back(*ep);
+        return;
+    }
+    _core->unregisterFd(dirfd(_dp));
+    closedir(_dp);
+    // Remove the "." symlink
+    _autoindexNodes.erase(std::remove_if(_autoindexNodes.begin(), _autoindexNodes.end(), isCurrentDir)), _autoindexNodes.end();
+
+    // Sort alphabetically and dir first then files
+    std::sort(_autoindexNodes.begin(), _autoindexNodes.end(), autoindexSortNodes);
+
+    
 
     // Loop over each node and write the corresponding line
-    for (std::vector<struct dirent>::iterator it = nodes.begin(); it != nodes.end(); it++)
-        _response.appendToBody(makeLine(path, *it));
+    for (std::vector<struct dirent>::iterator it = _autoindexNodes.begin(); it != _autoindexNodes.end(); it++)
+        _response.appendToBody(makeLine(_request.getUri(), *it));
     
     // Close the html tags
     _response.appendToBody("</pre><hr></body></html>");
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _status = STATUS_WAIT_TO_SEND;
+    _core->modifyFd(connection_fd, POLLOUT);
 }

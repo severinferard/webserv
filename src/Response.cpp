@@ -67,3 +67,8 @@ void Response::send(int fd)
         _payload += _body;
     ::send(fd, _payload.c_str(), _payload.size(), 0);
 }
+
+void Response::clearBody(void)
+{
+    _body = "";
+}

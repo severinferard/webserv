@@ -30,6 +30,7 @@ class Response
         void appendToBody(std::string str);
         void send(int fd);
         void setIgnoreBody(bool b);
+        void clearBody(void);
 
 };
 

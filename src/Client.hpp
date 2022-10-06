@@ -61,13 +61,16 @@ class Client
 		Server			*_server;
 		location_t		*_location;
 		WebservCore		*_core;
+		DIR				*_dp;
+		std::vector<struct dirent> _autoindexNodes;
 
 		int				__log_fd;
 		int				_file_fd;
 		bool			_timedOut;
-		void			_onReadToReadRequest();
-		void			_onReadToReadFile();
-		void			_onReadToSend();
+		void			_onReadyToReadRequest();
+		void			_onReadyToReadFile();
+		void			_onReadyToSend();
+		void			_onReadyToReadDir();
 		void			_onHttpError(const HttpError& e);
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
@@ -75,7 +78,7 @@ class Client
 		void			_handlePost(void);
 		void			_handlePut(void);
 		void			_handleDelete(void);
-		void			_autoIndex(std::string uri, std::string path);
+		void			_setupAutoIndex(std::string uri, std::string path);
 		static void		_initDefaultErrorPages(void);
 		
 	public:
