@@ -209,12 +209,18 @@ int        Request::parse(void)
         _version = requestLine[2];
 
         if (_method.empty())
+        {
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
+        }
  	    if (!isValidHttpMethod(_method))
+        {
             throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
+        }
         
         if (!isValidHttpVersion(_version))
+        {
             throw HttpError(HTTP_STATUS_VERSION_NOT_SUPPORTED);
+        }
 
         
         // Parse headers until empty line or a line not completed

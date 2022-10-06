@@ -7,6 +7,7 @@
 # include <cstdio>
 # include "utils.hpp"
 # include <iomanip>
+# include <algorithm>
 # include "utils.hpp"
 # include "Socket.hpp"
 # include "Logger.hpp"

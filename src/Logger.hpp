@@ -53,11 +53,11 @@ class Logger
 
                 std::cout << getTimestamp() << " ";
                 switch (level) {
-                case DebugP: std::cout << COLOR_CYAN"       [DEBUG] "COLOR_RESET; break;
-                case InfoP: std::cout  << COLOR_BLUE"       [INFO]  "COLOR_RESET; break;
-                case WarnP: std::cout  << COLOR_YELLOW"       [WARN]  "COLOR_RESET; break;
-                case ErrorP: std::cout << COLOR_RED"       [ERROR] "COLOR_RESET; break;
-                case FatalP: std::cout << COLOR_RED"       [FATAL] "COLOR_RESET; break;
+                case DebugP: std::cout << COLOR_CYAN "       [DEBUG] " COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE "       [INFO]  " COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW "       [WARN]  " COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED "       [ERROR] " COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED "       [FATAL] " COLOR_RESET; break;
                 }
                 vprintf(format, args);
                 std::cout << "\n";
@@ -73,11 +73,11 @@ class Logger
                 std::cout << getTimestamp() << " ";
                 std::cout << "CONN" <<std::setw(2) << std::right << fd << " ";
                 switch (level) {
-                case DebugP: std::cout << COLOR_CYAN"[DEBUG] "COLOR_RESET; break;
-                case InfoP: std::cout  << COLOR_BLUE"[INFO]  "COLOR_RESET; break;
-                case WarnP: std::cout  << COLOR_YELLOW"[WARN]  "COLOR_RESET; break;
-                case ErrorP: std::cout << COLOR_RED"[ERROR] "COLOR_RESET; break;
-                case FatalP: std::cout << COLOR_RED"[FATAL] "COLOR_RESET; break;
+                case DebugP: std::cout << COLOR_CYAN "[DEBUG] " COLOR_RESET; break;
+                case InfoP: std::cout  << COLOR_BLUE "[INFO]  " COLOR_RESET; break;
+                case WarnP: std::cout  << COLOR_YELLOW "[WARN]  " COLOR_RESET; break;
+                case ErrorP: std::cout << COLOR_RED "[ERROR] " COLOR_RESET; break;
+                case FatalP: std::cout << COLOR_RED "[FATAL] " COLOR_RESET; break;
                 }
                 vprintf(format, args);
                 std::cout << "\n";

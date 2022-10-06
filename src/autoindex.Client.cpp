@@ -25,6 +25,9 @@ static std::string             makeLine(std::string path, dirent &node)
 
     // Calculate the full path to pass it to stat()
     fullPath = joinPath(path, node.d_name);
+    fullPath = "." + fullPath;
+
+    memset(&stats,0,sizeof(stats));
     stat(fullPath.c_str(), &stats);
 
     // Format the date in dateBuff[]

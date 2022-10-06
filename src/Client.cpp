@@ -233,9 +233,9 @@ void			Client::_onReadyToReadFile(void)
 void			Client::_onReadyToSend(void)
 {
     if (_response.getStatus() == 200)
-        INFO("%s:%d - %s %s "COLOR_GREEN"%d"COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+        INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
     else
-        INFO("%s:%d - %s %s "COLOR_RED"%d"COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+        INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
     if (_request.getMethod() == "HEAD")
         _response.setIgnoreBody(true);
     _response.send(connection_fd);
