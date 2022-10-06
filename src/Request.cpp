@@ -130,14 +130,65 @@ static bool isEmptyLine(std::string line)
     return line == "\r\n";
 }
 
+void        Request::validate(std::vector<std::string>lines, size_t headerLineCount)
+{
+    std::vector<std::string>            allowedMethods;
+
+    // Throw 400 if the request doesnt provide a Host header
+    if (!hasKey<std::string, std::string>(_headers, "Host") && !hasKey<std::string, std::string>(_headers, "host"))
+        throw HttpError(HTTP_STATUS_BAD_REQUEST);
+
+    // Find the right server and location from the headers data
+    _server = findServer();
+    DEBUG("root: %s", _server->root.c_str());
+
+    _location = const_cast<location_t *>(_server->findLocation(_uri));
+    DEBUG("location: %s", (_location ? _location->path.c_str() : "No location"));
+
+    // Check if the methods are restricted for this route
+    allowedMethods = _location && !_location->allowed_methods.empty()
+            ? _location->allowed_methods
+            : _server->allowed_methods;
+
+    // If so, return 405 if the method is not allowed
+    if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), _method) == allowedMethods.end())
+        throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+    
+    // Calculate the position of the first character of the body in the payload
+    _bodyStart = 0;
+    for (size_t i = 0; i < headerLineCount; i++)
+        _bodyStart += lines[i].size();
+    _bodyStart += LINE_DELIMITER.size(); // add empty line
+
+    if (_method == "POST")
+    {
+        std::string transferEncoding;
+        if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
+        {
+            transferEncoding = _headers.at("Transfer-Encoding");
+            if (transferEncoding != "chunked")
+                throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+        }
+
+        if (hasKey<std::string, std::string>(_headers, "content-length"))
+            _headers["Content-Length"] = _headers["content-length"];
+        // Return 411 if the Content-Length header is not set
+        if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "Content-Length"))
+            throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
+
+        // Read the Content-Length and check if it's valid
+        char *end;
+        _contentLength = strtoul(_headers["Content-Length"].c_str(), &end, 10);
+        if (end == _headers["Content-Length"].c_str() || _contentLength <= 0)
+            throw HttpError(HTTP_STATUS_BAD_REQUEST);
+    }
+}
+
 int        Request::parse(void)
 {
     std::vector<std::string>            lines;
     std::vector<std::string>            requestLine;
-    std::vector<std::string>            allowedMethods;
     std::map<std::string, std::string>  headers;
-
-    static  uint32_t                    contentLength = 0;
 
     if (!_headerReceived)
     {
@@ -179,65 +230,11 @@ int        Request::parse(void)
 
         // Check if we reached the end of the header
         if (isEmptyLine(lines[headerLineCount]))
-        {
+        {   
             _headerReceived = true;
             _setHeaders(headers);
 
-            printf("payload %s\n", _payload.c_str());
-
-            // Throw 400 if the request doesnt provide a Host header
-            if (!hasKey<std::string, std::string>(headers, "Host") && !hasKey<std::string, std::string>(_headers, "host"))
-                throw HttpError(HTTP_STATUS_BAD_REQUEST);
-
-            // Find the right server and location from the headers data
-            _server = findServer();
-            DEBUG("root: %s", _server->root.c_str());
-
-            _location = const_cast<location_t *>(_server->findLocation(_uri));
-            DEBUG("location: %s", (_location ? _location->path.c_str() : "No location"));
-
-            // Check if the methods are restricted for this route
-            allowedMethods = _location && !_location->allowed_methods.empty()
-                    ? _location->allowed_methods
-                    : _server->allowed_methods;
-        
-            // If so, return 405 if the method is not allowed
-            if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), _method) == allowedMethods.end())
-                throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
-
-            // for (std::vector<std::string>::iterator it = lines.begin() + headerLineCount + 1; it < lines.end(); it++)
-            // {
-            //     _body.append(*it);
-            // }
-            
-            // Calculate the position of the first character of the body in the payload
-            _bodyStart = 0;
-            for (size_t i = 0; i < headerLineCount; i++)
-                _bodyStart += lines[i].size();
-            _bodyStart += LINE_DELIMITER.size(); // add empty line
-
-            if (_method == "POST")
-            {
-                std::string transferEncoding;
-                if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
-                {
-                    transferEncoding = _headers.at("Transfer-Encoding");
-                    if (transferEncoding != "chunked")
-                        throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
-                }
-
-                if (hasKey<std::string, std::string>(_headers, "content-length"))
-                    _headers["Content-Length"] = _headers["content-length"];
-                // Return 411 if the Content-Length header is not set
-                if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "Content-Length"))
-                    throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
-
-                // Read the Content-Length and check if it's valid
-                char *end;
-                contentLength = strtoul(_headers["Content-Length"].c_str(), &end, 10);
-                if (end == _headers["Content-Length"].c_str() || contentLength <= 0)
-                    throw HttpError(HTTP_STATUS_BAD_REQUEST);
-            }
+            validate(lines, headerLineCount);
         }
         else
             return false;
@@ -250,7 +247,7 @@ int        Request::parse(void)
     }
     else if (_method == "POST")
     {
-        if (_payload.size() - _bodyStart < contentLength)
+        if (_payload.size() - _bodyStart < _contentLength)
             return false;
         _body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
         printf("BODY %s\n", _body.c_str());

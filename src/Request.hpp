@@ -30,7 +30,8 @@ class Request
         location_t                         *_location;
         bool                                _headerReceived;
         std::string                         _payload;
-        size_t                              _bodyStart;      
+        size_t                              _bodyStart;  
+        size_t                              _contentLength;    
 
         static void                         _addHeader(std::string line, std::map<std::string, std::string> &headers);
         void                                _setHeaders(std::map<std::string, std::string> headers);
@@ -41,6 +42,7 @@ class Request
         ~Request();
 
         int                                 parse(void);
+        void                                validate(std::vector<std::string>lines, size_t headerLineCount);
         void                                appendToPayload(char *str, size_t size);
         std::string                         getPayload(void) const;
         std::string                         getUri(void) const;
