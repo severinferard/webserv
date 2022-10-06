@@ -120,7 +120,6 @@ bool parentDirExists(const std::string &path) {
     i = path.rfind('/');
     if (i != std::string::npos) {
 	parent_dir = path.substr(0, i);
-	std::cout << "parent_dir: [" << parent_dir << "]\n";
 	return (access(parent_dir.c_str(), F_OK) == 0);
     }
     return true;

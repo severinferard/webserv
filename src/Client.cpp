@@ -1,4 +1,5 @@
 #include "Client.hpp"
+
 char Client::_buffer[BUFFER_SIZE];
 
 void		Client::Log(LogLevel level, const char* format, ...)
@@ -107,11 +108,14 @@ void			Client::_handlePut(void)
         filepath = joinPath(_server->root, _request.getUri());
     Log(DebugP, "filepath: %s", filepath.c_str());
 
-    // can't do a POST request on a directory
+    if (!parentDirExists(filepath))
+	throw HttpError(HTTP_STATUS_NOT_FOUND);
+
+    // can't do a PUT request on a directory
     if (uriIsDirectory(filepath))
 	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
-    // POST requests are not 'idempotent' so we append the body to the file
+    // PUT requests are 'idempotent' so we replace the file with the new body
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
@@ -121,9 +125,28 @@ void			Client::_handlePut(void)
 
 void			Client::_handleDelete(void)
 {
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
-}
+    std::string filepath;
 
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    Log(DebugP, "filepath: %s", filepath.c_str());
+
+    // can't do a DELETE request on a directory
+    if (uriIsDirectory(filepath))
+	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+    if (access(filepath.c_str(), F_OK) == -1)
+	throw HttpError(HTTP_STATUS_NOT_FOUND);
+
+    remove(filepath.c_str());
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
+}
 
 int     Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
 {
@@ -335,7 +358,6 @@ Server *			Client::findServer(void)
     if (host_it == _request.getHeaders().end())
         host_it = _request.getHeaders().find("Host");
     // If the request doesnt contain a Host header, return the first candidate.
-    // TODO: Host header is mandatory -> 400 Bad Request if 0 or more than 1
     if (host_it == _request.getHeaders().end())
         return candidates[0];
     std::string hostName = host_it->second;
