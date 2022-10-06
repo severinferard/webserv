@@ -24,6 +24,18 @@ Client::~Client()
 {
 }
 
+static void filter_filepath(std::string &filepath) {
+    size_t  i;
+
+    i = filepath.find('?');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+
+    i = filepath.find('#');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+}
+
 void			Client::_handleGet(void)
 {
     std::string filepath;
@@ -33,6 +45,7 @@ void			Client::_handleGet(void)
         filepath = joinPath(_location->root, _request.getUri());
     else
         filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
     Log(DebugP, "filepath: %s", filepath.c_str());
 
     if (uriIsDirectory(filepath))
@@ -80,6 +93,7 @@ void			Client::_handlePost(void) {
         filepath = joinPath(_location->root, _request.getUri());
     else
         filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
     Log(DebugP, "filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
@@ -106,6 +120,7 @@ void			Client::_handlePut(void)
         filepath = joinPath(_location->root, _request.getUri());
     else
         filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
     Log(DebugP, "filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
@@ -132,6 +147,7 @@ void			Client::_handleDelete(void)
         filepath = joinPath(_location->root, _request.getUri());
     else
         filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
     Log(DebugP, "filepath: %s", filepath.c_str());
 
     // can't do a DELETE request on a directory
