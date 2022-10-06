@@ -68,6 +68,17 @@ void Response::send(int fd)
     ::send(fd, _payload.c_str(), _payload.size(), 0);
 }
 
+void Response::sendRaw(int fd)
+{
+    printf("SEND RAW %s\n", _payload.c_str());
+    ::send(fd, _payload.c_str(), _payload.size(), 0);
+}
+
+void Response::appendToRawPayload(std::string str)
+{
+    _payload.append(str);
+}
+
 void Response::clearBody(void)
 {
     _body = "";

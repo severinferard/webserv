@@ -91,7 +91,9 @@
                         if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
                             client->timeout();
                         if (_pollfds[i].revents)
+                        {
                             client->resume();
+                        }
                     }
                 }
                 

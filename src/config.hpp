@@ -41,6 +41,7 @@ typedef struct              location_s {
     std::vector<std::string> allowed_methods;
     int                        autoindex;
     std::string                 client_body_temp_path;
+    std::string                 cgi_pass;
 }                           location_t;
 
 typedef struct              server_config_s {

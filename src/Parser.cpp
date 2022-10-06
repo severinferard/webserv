@@ -91,6 +91,13 @@ std::string Parser::parse_root(std::ifstream & file)
 	return ret;
 }
 
+std::string Parser::parse_cgi(std::ifstream & file)
+{
+	std::string ret = get_next_token(file);
+	assert_next_token(file, ";");
+	return ret;
+}
+
 host_port_t Parser::parse_listen(std::ifstream & file)
 {
 	std::string token;
@@ -242,6 +249,8 @@ location_t					Parser::parse_location(std::ifstream & file)
 	{
 		if (token == "root") {
 			ret.root = parse_root(file);
+		} else if (token == "cgi_pass") {
+			ret.cgi_pass = parse_cgi(file);
 		} else if (token == "error_page") {
 			parse_error_page(file, ret.error_pages);
 		} else if (token == "index") {
@@ -363,6 +372,7 @@ void Parser::print_server(server_config_t server)
 		PRINT_STRING_VECTOR(i->index);
 		std::cout << "\t" << "autoindex: " << i->autoindex << std::endl;
 		std::cout << "\t" << "error pages: " << i->error_pages.size() << std::endl;
+		std::cout << "\t" << "cgi_pass: " << i->cgi_pass << std::endl;
 	}
 
 	std::cout << std::endl << std::endl;

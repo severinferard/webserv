@@ -125,6 +125,7 @@ class Parser
 		server_config_t				parse_server(server_config_t & server);
 		location_t					parse_location(std::ifstream & file);
 		std::string					parse_root(std::ifstream & file);
+		std::string					parse_cgi(std::ifstream &file);
 		host_port_t					parse_listen(std::ifstream & file);
 		std::vector<std::string>	parse_server_name(std::ifstream & file);
 		void						parse_error_page(std::ifstream & file, std::map<int, error_page_t> & error_pages);

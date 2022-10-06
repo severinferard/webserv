@@ -75,5 +75,12 @@
         "numbers": "cpp",
         "queue": "cpp",
         "*.tcc": "cpp"
-    }
+    },
+    "makefile.launchConfigurations": [
+        {
+            "cwd": "/Users/severinferard/Documents/42/webserv/rendu",
+            "binaryPath": "/Users/severinferard/Documents/42/webserv/rendu/webserv",
+            "binaryArgs": []
+        }
+    ]
 }

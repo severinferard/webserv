@@ -37,6 +37,8 @@ typedef enum ClientStatus_s {
 	STATUS_WAIT_TO_READ_FILE,
 	STATUS_WAIT_TO_READ_DIR,
 	STATUS_WAIT_TO_SEND,
+	STATUS_WAIT_TO_WRITE_CGI,
+	STATUS_WAIT_TO_READ_CGI,
 }           ClientStatus_t;
 
 #define BUFFER_SIZE 65139
@@ -63,14 +65,19 @@ class Client
 		WebservCore		*_core;
 		DIR				*_dp;
 		std::vector<struct dirent> _autoindexNodes;
+		std::string		_cgiPayload;
 
 		int				__log_fd;
 		int				_file_fd;
 		bool			_timedOut;
+		int				_cgi_pid;
+		int				_cgi_stdin_fd;
 		void			_onReadyToReadRequest();
 		void			_onReadyToReadFile();
 		void			_onReadyToSend();
 		void			_onReadyToReadDir();
+		void			_onReadyToReadCgi();
+		void			_onReadyToWriteCgi();
 		void			_onHttpError(const HttpError& e);
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
@@ -78,6 +85,7 @@ class Client
 		void			_handlePost(void);
 		void			_handlePut(void);
 		void			_handleDelete(void);
+		void			_handleCgi(void);
 		void			_setupAutoIndex(std::string uri, std::string path);
 		static void		_initDefaultErrorPages(void);
 		

@@ -28,7 +28,9 @@ class Response
         void setStatus(int status);
         int getStatus(void) const;
         void appendToBody(std::string str);
+        void appendToRawPayload(std::string str);
         void send(int fd);
+        void sendRaw(int fd);
         void setIgnoreBody(bool b);
         void clearBody(void);
 
