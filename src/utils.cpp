@@ -1,6 +1,7 @@
 #include "utils.hpp"
 #include <cstring>
 #include <cerrno>
+#include <unistd.h>
 
 std::vector<std::string> splitstr(std::string str, std::string delim) {
     std::vector<std::string>	splits;
@@ -110,4 +111,17 @@ std::string joinPath(const std::string &left, const std::string &right)
     std::string newLeft = (end == std::string::npos) ? "" : left.substr(0, end + 1);
     std::string newRight = (start == std::string::npos) ? "" : right.substr(start);
     return newLeft + "/" + newRight;
+}
+
+bool parentDirExists(const std::string &path) {
+    size_t	i;
+    std::string	parent_dir;
+
+    i = path.rfind('/');
+    if (i != std::string::npos) {
+	parent_dir = path.substr(0, i);
+	std::cout << "parent_dir: [" << parent_dir << "]\n";
+	return (access(parent_dir.c_str(), F_OK) == 0);
+    }
+    return true;
 }

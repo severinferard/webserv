@@ -81,7 +81,7 @@ void			Client::_handlePost(void) {
         filepath = joinPath(_server->root, _request.getUri());
     Log(DebugP, "filepath: %s", filepath.c_str());
 
-    if (access(filepath.c_str(), F_OK) == -1)
+    if (!parentDirExists(filepath))
 	throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     // can't do a POST request on a directory
