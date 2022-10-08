@@ -53,8 +53,10 @@ void        Response::setIgnoreBody(bool b)
 
 void Response::send(int fd)
 {
-    setHeader("Content-Type", "text/html");
-    setHeader("Content-Length", toString(_body.size()));
+    if (!hasKey<std::string, std::string>(_headers, "Content-Type") && !hasKey<std::string, std::string>(_headers, "Content-type"))
+        setHeader("Content-Type", "text/html");
+    if (_body.size())
+        setHeader("Content-Length", toString(_body.size()));
     setHeader("Connection", "close");
 
     _payload += "HTTP/1.1 " + toString(_status) + " " + HTTP_STATUS[_status] + "\r\n";

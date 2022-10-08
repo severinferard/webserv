@@ -81,6 +81,8 @@ Client::~Client()
 
 std::string getLocationRelativeRoute(location_t location, std::string route)
 {
+    if (location.modifier == PATH_ENDWITH)
+        return route;
     std::string ret = route.substr(location.path.size(), route.size() - location.path.size());
     return ret;
 }
@@ -152,34 +154,52 @@ void			Client::_handleDelete(void)
 
 void			Client::_handleCgi(void)
 {
-    int stdoutLink[2];
-    int stdinLink[2];
-    pid_t pid;
-    int status;
+    int                         stdoutLink[2];
+    int                         stdinLink[2];
+    int                         status;
+    pid_t                       pid;
 
-    std::vector<std::string> args;
-    std::vector<char *> cArgs;
-    std::vector<std::string> env;
-    std::vector<char *> cEnv;
+    std::vector<std::string>    args;
+    std::vector<char *>         cArgs;
+    std::vector<std::string>    env;
+    std::vector<char *>         cEnv;
+    std::string                 filepath;
+
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    if (!pathExist(filepath))
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
+    
+    if (isDirectory(filepath))
+    {
+        if (_location->index.size())
+        {
+            for (std::vector<std::string>::const_iterator it = _location->index.begin(); it != _location->index.end(); it++)
+            {
+                std::string path = joinPath(filepath, *it);
+                if (pathExist(path))
+                {
+                    filepath = path;
+                    break;
+                }
+            }
+        }
+    }
+    if (!pathExist(filepath))
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     env.push_back("HTTP_METHOD=" + _request.getMethod());
     env.push_back("REQUEST_METHOD=" + _request.getMethod());
     env.push_back("SERVER_PROTOCOL=" + _request.getVersion());
     env.push_back("PATH_INFO=" + _request.getUri());
-    env.push_back("SCRIPT_FILENAME=." + _request.getUri());
-    printf("path ? %s\n", _request.getUri().c_str());
+    env.push_back("SCRIPT_FILENAME=" + filepath);
     env.push_back("REDIRECT_STATUS=CGI");
     args.push_back(_location->cgi_pass);
 
-    cEnv.reserve(env.size());
-    for(size_t i = 0; i < env.size(); ++i)
-        cEnv.push_back(const_cast<char*>(env[i].c_str()));
-    cEnv.push_back(NULL);
-
-    cArgs.reserve(args.size());
-    for(size_t i = 0; i < args.size(); ++i)
-        cArgs.push_back(const_cast<char*>(args[i].c_str()));
-    cArgs.push_back(NULL);
+    strVectorToCstrVector(env, cEnv);
+    strVectorToCstrVector(args, cArgs);
 
     if (pipe(stdoutLink) < 0)
         throw std::runtime_error("Error creating pipe");
@@ -198,7 +218,7 @@ void			Client::_handleCgi(void)
         dup2(stdinLink[0], STDIN_FILENO);
         close(stdinLink[0]);
         execve(cArgs[0], &cArgs[0], &cEnv[0]);
-        throw std::runtime_error("Execv failed");
+        throw std::runtime_error("Execve failed");
     }
     else
     {
@@ -327,6 +347,9 @@ void            Client::_onReadyToReadCgi(void)
 {
     int status;
     char    buff[1000];
+    std::vector<std::string> lines;
+    bool    statusSet = false;
+    size_t  bodyStart = 0;
 
     // printf("CGI READY\n");
     int size = read(_file_fd, buff, sizeof(buff) - 1);
@@ -334,7 +357,7 @@ void            Client::_onReadyToReadCgi(void)
     // printf("hello %d %s\n", size, buff);
     if (size > 0)
     {
-        _response.appendToBody(buff);
+        _cgiPayload.append(buff, size);
     } else if (size < 0)
     {
         throw std::runtime_error("Error reading CGI ouput");
@@ -342,14 +365,35 @@ void            Client::_onReadyToReadCgi(void)
     else
     {
         pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
-        // printf("finished %d\n", finished);
         if (finished > 0)
         {
-            // printf("finished %d %d %d\n", finished, WIFEXITED(status), WEXITSTATUS(status));
+            
+            lines = splitstr(_cgiPayload, "\r\n");
+            for (size_t i = 0; i < lines.size(); i++)
+            {
+                if (lines[i].empty())
+                    break;
+                bodyStart += lines[i].size() + 2;
+                size_t col;
+                if ((col = lines[i].find(':')) != std::string::npos)
+                {
+                    std::string fieldName = lines[i].substr(0, col);
+                    std::string value = lines[i].substr(col + 1, lines[i].size() - col -1);
+                    _response.setHeader(fieldName, value);
+                    if (fieldName == "Status")
+                    {
+                        _response.setStatus(atoi(value.c_str()));
+                        statusSet = true;
+                    }
+                }
+            }
+            bodyStart += 2;
+            _response.appendToBody(_cgiPayload.substr(bodyStart, _cgiPayload.size() - bodyStart));
+            if (!statusSet)
+                _response.setStatus(HTTP_STATUS_SUCCESS);
             _core->unregisterFd(_file_fd);
             close(_file_fd);
             _status = STATUS_WAIT_TO_SEND;
-            _response.setStatus(HTTP_STATUS_SUCCESS);
             _core->modifyFd(connection_fd, POLLOUT);
             return;
         }

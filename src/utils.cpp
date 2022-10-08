@@ -121,3 +121,12 @@ std::string joinPath(const std::string &left, const std::string &right)
     std::string newRight = (start == std::string::npos) ? "" : right.substr(start);
     return newLeft + "/" + newRight;
 }
+
+void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *> &cstrings)
+{
+
+    cstrings.reserve(origin.size() + 1);
+    for(size_t i = 0; i < origin.size(); ++i)
+        cstrings.push_back(const_cast<char*>(origin[i].c_str()));
+    cstrings.push_back(NULL);
+}
