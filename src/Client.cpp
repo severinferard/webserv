@@ -79,6 +79,19 @@ Client::~Client()
 {
 }
 
+static void filter_filepath(std::string &filepath) {
+    size_t  i;
+
+    i = filepath.find('?');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+
+    i = filepath.find('#');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+}
+
+
 std::string getLocationRelativeRoute(location_t location, std::string route)
 {
     if (location.modifier == PATH_ENDWITH)
@@ -137,20 +150,85 @@ void			Client::_handleGet(void)
         _core->registerFd(_file_fd, POLLIN, this);
 }
 
-void			Client::_handlePost(void)
-{
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+void			Client::_handlePost(void) {
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
+    DEBUG("filepath: %s", filepath.c_str());
+
+    if (!parentDirExists(filepath))
+	    throw HttpError(HTTP_STATUS_NOT_FOUND);
+
+    // can't do a POST request on a directory
+    if (isDirectory(filepath))
+	    throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+    // POST requests are not 'idempotent' so we append the body to the file
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handlePut(void)
 {
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
+    DEBUG("filepath: %s", filepath.c_str());
+
+    if (!parentDirExists(filepath))
+	throw HttpError(HTTP_STATUS_NOT_FOUND);
+
+    // can't do a PUT request on a directory
+    if (isDirectory(filepath))
+	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+    // PUT requests are 'idempotent' so we replace the file with the new body
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handleDelete(void)
 {
-    throw HttpError(HTTP_STATUS_NOT_FOUND); // Provisoire
+    std::string filepath;
+
+    // Generate the file path from the configured root
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getUri());
+    else
+        filepath = joinPath(_server->root, _request.getUri());
+    filter_filepath(filepath);
+    DEBUG("filepath: %s", filepath.c_str());
+
+    // can't do a DELETE request on a directory
+    if (isDirectory(filepath))
+	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
+    if (access(filepath.c_str(), F_OK) == -1)
+	throw HttpError(HTTP_STATUS_NOT_FOUND);
+
+    remove(filepath.c_str());
+
+    _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _core->registerFd(_file_fd, POLLIN, this);
 }
+
 
 void			Client::_handleCgi(void)
 {
@@ -404,6 +482,13 @@ void            Client::_onReadyToReadCgi(void)
 
 }
 
+void			Client::_onReadToWriteFile(void) {
+    write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
+    _status = STATUS_WAIT_TO_SEND;
+    _core->unregisterFd(_file_fd);
+    _core->modifyFd(connection_fd, POLLOUT);
+}
+
 void			Client::_onHttpError(const HttpError& e)
 {
     error_page_t errorPage;
@@ -452,6 +537,10 @@ void        Client::resume(void)
         
         case STATUS_WAIT_TO_WRITE_CGI:
             _onReadyToWriteCgi();
+            break;
+            
+        case STATUS_WAIT_TO_WRITE_FILE:
+            _onReadToWriteFile();
             break;
         default:
             break;

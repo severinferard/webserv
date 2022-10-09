@@ -130,3 +130,15 @@ void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *>
         cstrings.push_back(const_cast<char*>(origin[i].c_str()));
     cstrings.push_back(NULL);
 }
+
+bool parentDirExists(const std::string &path) {
+    size_t	i;
+    std::string	parent_dir;
+
+    i = path.rfind('/');
+    if (i != std::string::npos) {
+	parent_dir = path.substr(0, i);
+	return (access(parent_dir.c_str(), F_OK) == 0);
+    }
+    return true;
+}

@@ -39,6 +39,7 @@ typedef enum ClientStatus_s {
 	STATUS_WAIT_TO_SEND,
 	STATUS_WAIT_TO_WRITE_CGI,
 	STATUS_WAIT_TO_READ_CGI,
+	STATUS_WAIT_TO_WRITE_FILE,
 }           ClientStatus_t;
 
 #define BUFFER_SIZE 65139
@@ -78,6 +79,7 @@ class Client
 		void			_onReadyToReadDir();
 		void			_onReadyToReadCgi();
 		void			_onReadyToWriteCgi();
+		void			_onReadToWriteFile(void);
 		void			_onHttpError(const HttpError& e);
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
