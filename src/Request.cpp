@@ -160,7 +160,7 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         _bodyStart += lines[i].size();
     _bodyStart += LINE_DELIMITER.size(); // add empty line
 
-    if (_method == "POST")
+    if (_method == "POST" || _method == "PUT")
     {
         std::string transferEncoding;
         if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
@@ -243,7 +243,7 @@ int        Request::parse(void)
         {   
             _headerReceived = true;
             _setHeaders(headers);
-
+            print_headers(_headers);
             validate(lines, headerLineCount);
         }
         else
@@ -255,7 +255,7 @@ int        Request::parse(void)
     {
         return true;
     }
-    else if (_method == "POST")
+    else if (_method == "POST" || _method == "PUT")
     {
         if (_payload.size() - _bodyStart < _contentLength)
             return false;
