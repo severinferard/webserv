@@ -225,7 +225,7 @@ location_t					Parser::parse_location(std::ifstream & file)
 	std::string	token;
 	location_t	ret;
 	ret.autoindex = -1;
-	ret.client_body_temp_path = -1;
+	ret.client_max_body_size = -1;
 
 	ret.modifier = PATH_NO_MODIFIDER;
 	
@@ -259,6 +259,8 @@ location_t					Parser::parse_location(std::ifstream & file)
 			ret.allowed_methods = parse_allowed_methods(file);
 		} else if (token == "autoindex") {
 			ret.autoindex = parse_autoindex(file);
+		} else if (token == "client_max_body_size") {
+			ret.client_max_body_size = parse_client_max_body_size(file);
 		} else if (token == "client_body_temp_path") {
 			ret.client_body_temp_path = parse_client_body_temp_path(file);
 		} else {

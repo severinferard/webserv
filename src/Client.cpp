@@ -49,6 +49,11 @@ void						Client::_initDefaultErrorPages(void)
 	page.path = DEFAULT_ERROR_PAGE_411;
 	Client::DEFAULT_ERROR_PAGES[411] = page;
 
+    page.code = 413;
+	page.ret = 413;
+	page.path = DEFAULT_ERROR_PAGE_413;
+	Client::DEFAULT_ERROR_PAGES[413] = page;
+
 	page.code = 415;
 	page.ret = 415;
 	page.path = DEFAULT_ERROR_PAGE_415;
@@ -153,13 +158,15 @@ void			Client::_handleGet(void)
 void			Client::_handlePost(void) {
     std::string filepath;
 
-    // Generate the file path from the configured root
-    if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, _request.getUri());
+    // Generate the file path from the configured folder
+    if (_location && _location->client_body_temp_path.size())
+        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getUri()));
+    else if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
     else
         filepath = joinPath(_server->root, _request.getUri());
     filter_filepath(filepath);
-    DEBUG("filepath: %s", filepath.c_str());
+    DEBUG("post filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
 	    throw HttpError(HTTP_STATUS_NOT_FOUND);
@@ -172,34 +179,36 @@ void			Client::_handlePost(void) {
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
-    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handlePut(void)
 {
-    std::string filepath;
+   std::string filepath;
 
-    // Generate the file path from the configured root
-    if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, _request.getUri());
+    // Generate the file path from the configured folder
+    if (_location && _location->client_body_temp_path.size())
+        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getUri()));
+    else if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
     else
         filepath = joinPath(_server->root, _request.getUri());
     filter_filepath(filepath);
-    DEBUG("filepath: %s", filepath.c_str());
+    DEBUG("put filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
-	throw HttpError(HTTP_STATUS_NOT_FOUND);
+	    throw HttpError(HTTP_STATUS_NOT_FOUND);
 
-    // can't do a PUT request on a directory
+    // can't do a POST request on a directory
     if (isDirectory(filepath))
-	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+	    throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
-    // PUT requests are 'idempotent' so we replace the file with the new body
+    // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
-    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
 }
 
@@ -219,8 +228,8 @@ void			Client::_handleDelete(void)
     if (isDirectory(filepath))
 	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
-    if (access(filepath.c_str(), F_OK) == -1)
-	throw HttpError(HTTP_STATUS_NOT_FOUND);
+    if (!pathExist(filepath.c_str()))
+	    throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     remove(filepath.c_str());
 
@@ -538,7 +547,7 @@ void        Client::resume(void)
         case STATUS_WAIT_TO_WRITE_CGI:
             _onReadyToWriteCgi();
             break;
-            
+
         case STATUS_WAIT_TO_WRITE_FILE:
             _onReadToWriteFile();
             break;

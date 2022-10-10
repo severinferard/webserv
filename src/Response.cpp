@@ -14,11 +14,13 @@ Response::~Response()
 void Response::_initHttpStatus(void)
 {
     Response::HTTP_STATUS[200] = "OK";
+    Response::HTTP_STATUS[201] = "Created";
     Response::HTTP_STATUS[400] = "Bad Request";
     Response::HTTP_STATUS[403] = "Forbidden";
     Response::HTTP_STATUS[404] = "Not Found";
     Response::HTTP_STATUS[408] = "Request Timeout";
     Response::HTTP_STATUS[411] = "Length Required";
+    Response::HTTP_STATUS[413] = "Payload Too Large";
     Response::HTTP_STATUS[415] = "Unsupported Media Type";
     Response::HTTP_STATUS[500] = "Internal Server Error";
     Response::HTTP_STATUS[501] = "Not Implemented";

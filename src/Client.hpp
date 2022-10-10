@@ -26,6 +26,7 @@
 #define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
 #define DEFAULT_ERROR_PAGE_408 "./src/www/errors/408.html"
 #define DEFAULT_ERROR_PAGE_411 "./src/www/errors/411.html"
+#define DEFAULT_ERROR_PAGE_413 "./src/www/errors/411.html"
 #define DEFAULT_ERROR_PAGE_415 "./src/www/errors/415.html"
 #define DEFAULT_ERROR_PAGE_500 "./src/www/errors/500.html"
 #define DEFAULT_ERROR_PAGE_501 "./src/www/errors/501.html"
