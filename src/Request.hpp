@@ -16,6 +16,12 @@
 class Server;
 class Socket;
 
+typedef struct s_chunk {
+    size_t  start;
+    size_t  size;
+    bool    hasSize;
+}               t_chunk;
+
 class Request
 {
     private:
@@ -33,6 +39,8 @@ class Request
         std::string                         _payload;
         size_t                              _bodyStart;  
         size_t                              _contentLength;    
+        bool                                _chunked;
+        t_chunk                              _currentChunk;
 
         static void                         _addHeader(std::string line, std::map<std::string, std::string> &headers);
         void                                _setHeaders(std::map<std::string, std::string> headers);

@@ -5,7 +5,8 @@ static const std::string LINE_DELIMITER = "\r\n";
 Request::Request():
 _server(NULL),
 _location(NULL),
-_headerReceived(false)
+_headerReceived(false),
+_chunked(false)
 {
 }
 
@@ -15,7 +16,8 @@ __log_fd(connection_fd),
 _socket(sock),
 _server(NULL),
 _location(NULL),
-_headerReceived(false)
+_headerReceived(false),
+_chunked(false)
 {
     // LOG(DebugP, "new request %d", 42);
 }
@@ -163,23 +165,27 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
     if (_method == "POST" || _method == "PUT")
     {
         std::string transferEncoding;
-        if (hasKey<std::string, std::string>(_headers, "Transfer-Encoding"))
+        if (hasKey<std::string, std::string>(_headers, "transfer-encoding"))
         {
-            transferEncoding = _headers.at("Transfer-Encoding");
+            transferEncoding = _headers.at("transfer-encoding");
             if (transferEncoding != "chunked")
                 throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
+            _chunked = true;
+            _currentChunk.start = _bodyStart;
+            _currentChunk.hasSize = false;
         }
 
-        if (hasKey<std::string, std::string>(_headers, "content-length"))
-            _headers["Content-Length"] = _headers["content-length"];
         // Return 411 if the Content-Length header is not set
-        if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "Content-Length"))
+        if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "content-length"))
             throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
+
+        if (_chunked)
+            return;
 
         // Read the Content-Length and check if it's valid
         char *end;
-        _contentLength = strtoul(_headers["Content-Length"].c_str(), &end, 10);
-        if (end == _headers["Content-Length"].c_str() || _contentLength <= 0)
+        _contentLength = strtoul(_headers["content-length"].c_str(), &end, 10);
+        if (end == _headers["content-length"].c_str() || _contentLength <= 0)
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         if (_location && _contentLength > _location->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
@@ -243,7 +249,7 @@ int        Request::parse(void)
         {   
             _headerReceived = true;
             _setHeaders(headers);
-            print_headers(_headers);
+            // print_headers(_headers);
             validate(lines, headerLineCount);
         }
         else
@@ -257,10 +263,42 @@ int        Request::parse(void)
     }
     else if (_method == "POST" || _method == "PUT")
     {
-        if (_payload.size() - _bodyStart < _contentLength)
+        if (_chunked)
+        {
+            // Read until we have at least 1 complete line with \r\n
+            while (isLineComplete(_payload.substr(_currentChunk.start)))
+            {
+                // Read the chunk size
+                if (!_currentChunk.hasSize)
+                {
+                    std::stringstream ss;
+                    std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
+                    ss << line;
+                    ss >> std::hex >> _currentChunk.size;
+                    _currentChunk.hasSize = true;
+                    _currentChunk.start += line.size() + 2;
+                    // Stop reading if the chunk is empty
+                    if (_currentChunk.size == 0)
+                        return true;
+                }
+                // Keep reading if we still haven't finished reading the chunk
+                if (_payload.size() - _currentChunk.start < _currentChunk.size)
+                    return false;
+                // Else append the current chunk to the body of the request
+                _body.append(_payload.substr(_currentChunk.start, _currentChunk.size));
+                _currentChunk.hasSize = false;
+                _currentChunk.start += _currentChunk.size + LINE_DELIMITER.size();
+            }
             return false;
-        _body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
-        printf("BODY %s\n", _body.c_str());
+            
+        }
+        else
+        {
+            if (_payload.size() - _bodyStart < _contentLength)
+                return false;
+            _body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
+            return true;
+        }
     }
     return true;
 }

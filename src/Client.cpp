@@ -353,7 +353,7 @@ void			Client::_onReadyToReadRequest(void)
         std::string method;
         std::vector<std::string> allowedMethods;
 
-        char buff[256];
+        char buff[1000000];
         int ret;
 
         ret = recv(connection_fd, buff, sizeof(buff), 0);
@@ -403,7 +403,7 @@ void			Client::_onReadyToReadFile(void)
 
 void			Client::_onReadyToSend(void)
 {
-    if (_response.getStatus() == 200)
+    if (_response.getStatus() >= 200 && _response.getStatus() < 300)
         INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
     else
         INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());

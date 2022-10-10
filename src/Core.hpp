@@ -22,7 +22,7 @@
 // #include "epoll.h"
 
 #define EPOLL_TIMEOUT 1000
-#define CONNECTION_TIMEOUT_DELAY 10
+#define CONNECTION_TIMEOUT_DELAY 1000
 
 class Client;
 class Socket;
