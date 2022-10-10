@@ -74,7 +74,6 @@ void Response::send(int fd)
 
 void Response::sendRaw(int fd)
 {
-    printf("SEND RAW %s\n", _payload.c_str());
     ::send(fd, _payload.c_str(), _payload.size(), 0);
 }
 

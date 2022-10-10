@@ -181,7 +181,7 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         _contentLength = strtoul(_headers["Content-Length"].c_str(), &end, 10);
         if (end == _headers["Content-Length"].c_str() || _contentLength <= 0)
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
-        if (_location && _location->client_max_body_size >= 0 && _contentLength > _location->client_max_body_size)
+        if (_location && _contentLength > _location->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
         if (_contentLength > _server->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);

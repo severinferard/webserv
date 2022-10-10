@@ -3,6 +3,7 @@
 
 # include <string>
 # include <algorithm>
+# include <sys/wait.h>
 # include "Socket.hpp"
 # include "Server.hpp"
 # include "Request.hpp"
