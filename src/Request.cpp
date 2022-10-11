@@ -199,7 +199,6 @@ int        Request::parse(void)
     std::vector<std::string>            lines;
     std::vector<std::string>            requestLine;
     std::map<std::string, std::string>  headers;
-
     if (!_headerReceived)
     {
         // Spit the buffer into lines arround the /r/n
@@ -208,12 +207,10 @@ int        Request::parse(void)
         // Retrun now if we don't have the first line completed
         if (!isLineComplete(lines[0]))
             return false;
-
         // Parse the first line with method, uri and protocol version and check if it's correct
         requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
-        
         _method = requestLine[0];
         _uri = requestLine[1];
         _version = requestLine[2];
@@ -232,16 +229,17 @@ int        Request::parse(void)
             throw HttpError(HTTP_STATUS_VERSION_NOT_SUPPORTED);
         }
 
-        
         // Parse headers until empty line or a line not completed
         size_t headerLineCount = 1;
-        // printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
+        //printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
         while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
             _addHeader(lines[headerLineCount], headers);
             headerLineCount++;
         }
-
+        if (headerLineCount == lines.size())
+            headerLineCount -= 1;
+        isEmptyLine(lines[headerLineCount]);
         // printf("headerLineCount %ld real %ld\n", headerLineCount, lines.size());
 
         // Check if we reached the end of the header
@@ -249,13 +247,15 @@ int        Request::parse(void)
         {   
             _headerReceived = true;
             _setHeaders(headers);
-            print_headers(headers);
+            //print_headers(headers);
             validate(lines, headerLineCount);
         }
         else
+        {
             return false;
+        }
     }
-
+   
     // This part is executed only when the header has already been received
     if (_method == "GET")
     {
@@ -263,6 +263,7 @@ int        Request::parse(void)
     }
     else if (_method == "POST" || _method == "PUT")
     {
+        
         if (_chunked)
         {
             // Read until we have at least 1 complete line with \r\n

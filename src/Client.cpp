@@ -466,15 +466,15 @@ void            Client::_onReadyToWriteCgi(void)
 void            Client::_onReadyToReadCgi(void)
 {
     int status;
-    char    buff[10000000];
+    char    buff[100000];
     std::vector<std::string> lines;
     bool    statusSet = false;
     size_t  bodyStart = 0;
 
-    // printf("CGI READY\n");
+    //printf("CGI READY\n");
     int size = read(_file_fd, buff, sizeof(buff) - 1);
     buff[size] = 0;
-    // printf("hello %d %s\n", size, buff);
+    //printf("hello %d %s\n", size, buff);
     if (size > 0)
     {
         _cgiPayload.append(buff, size);
