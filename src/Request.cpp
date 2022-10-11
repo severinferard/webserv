@@ -71,6 +71,16 @@ Server                              *Request::getServer(void) const
     return _server;
 }
 
+std::string                         Request::getRoute(void) const
+{
+    return _route;
+}
+
+std::string                         Request::getQueryString(void) const
+{
+    return _queryString;
+}
+
 void        Request::_setHeaders(std::map<std::string, std::string> headers)
 {
     this->headers = headers;
@@ -135,7 +145,6 @@ static bool isEmptyLine(std::string line)
 void        Request::validate(std::vector<std::string>lines, size_t headerLineCount)
 {
     std::vector<std::string>            allowedMethods;
-
     // Throw 400 if the request doesnt provide a Host header
     if (!hasKey<std::string, std::string>(headers, "Host") && !hasKey<std::string, std::string>(headers, "host"))
         throw HttpError(HTTP_STATUS_BAD_REQUEST);
@@ -144,7 +153,9 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
     _server = findServer();
     DEBUG("root: %s", _server->root.c_str());
 
-    _location = _server->findLocation(_uri, &_hasLocation);
+    _route = extractRoute(_uri);
+    _queryString = extractQueryString(_uri);
+    _location = _server->findLocation(_route, &_hasLocation);
     DEBUG("location: %s", (_hasLocation ? _location.path.c_str() : "No location"));
 
     // Check if the methods are restricted for this route

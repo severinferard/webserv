@@ -88,19 +88,6 @@ Client::~Client()
     // WARNING("Client destructor");
 }
 
-static void filter_filepath(std::string &filepath) {
-    size_t  i;
-
-    i = filepath.find('?');
-    if (i != std::string::npos)
-	filepath = filepath.substr(0, i);
-
-    i = filepath.find('#');
-    if (i != std::string::npos)
-	filepath = filepath.substr(0, i);
-}
-
-
 std::string getLocationRelativeRoute(location_t location, std::string route)
 {
     if (location.modifier == PATH_ENDWITH)
@@ -121,12 +108,11 @@ void			Client::_handleGet(void)
     // Generate the file path from the configured root
     if (_location && !_location->root.empty())
     {
-        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     }
     else
-        filepath = joinPath(_server->root, _request.getUri());
+        filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
-
     if (!pathExist(filepath))
         throw HttpError(HTTP_STATUS_NOT_FOUND); 
     if (isDirectory(filepath))
@@ -142,7 +128,7 @@ void			Client::_handleGet(void)
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
                 DEBUG("Serving Autoindex");
-                _setupAutoIndex(_request.getUri(), filepath);
+                _setupAutoIndex(_request.getRoute(), filepath);
                 return;
             }
             // Otherwise the bad fd will be catched downstream and raise a 404.
@@ -154,7 +140,6 @@ void			Client::_handleGet(void)
         
         if (_file_fd <= 0)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
-        // _status = STATUS_WAIT_TO_READ_FILE;
         _setCallback(_file_fd,  &Client::_onReadyToReadFile);
         _response.setStatus(HTTP_STATUS_SUCCESS);
         _core->registerFd(_file_fd, POLLIN, this);
@@ -165,12 +150,11 @@ void			Client::_handlePost(void) {
 
     // Generate the file path from the configured folder
     if (_location && _location->client_body_temp_path.size())
-        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()));
     else if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
-        filepath = joinPath(_server->root, _request.getUri());
-    filter_filepath(filepath);
+        filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("post filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
@@ -189,7 +173,6 @@ void			Client::_handlePost(void) {
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
-    // _status = STATUS_WAIT_TO_WRITE_FILE;
     _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
     _setCallback(_file_fd,  &Client::_onReadToWriteFile);
@@ -201,12 +184,11 @@ void			Client::_handlePut(void)
 
     // Generate the file path from the configured folder
     if (_location && _location->client_body_temp_path.size())
-        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()));
     else if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
-        filepath = joinPath(_server->root, _request.getUri());
-    filter_filepath(filepath);
+        filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("put filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
@@ -219,7 +201,6 @@ void			Client::_handlePut(void)
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    // _status = STATUS_WAIT_TO_WRITE_FILE;
     _setCallback(_file_fd,  &Client::_onReadToWriteFile);
     _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
@@ -231,10 +212,9 @@ void			Client::_handleDelete(void)
 
     // Generate the file path from the configured root
     if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, _request.getUri());
+        filepath = joinPath(_location->root, _request.getRoute());
     else
-        filepath = joinPath(_server->root, _request.getUri());
-    filter_filepath(filepath);
+        filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
 
     // can't do a DELETE request on a directory
@@ -246,7 +226,6 @@ void			Client::_handleDelete(void)
 
     remove(filepath.c_str());
 
-    // _status = STATUS_WAIT_TO_WRITE_FILE;
     _setCallback(_file_fd,  &Client::_onReadToWriteFile);
     _response.setStatus(HTTP_STATUS_SUCCESS);
     _core->registerFd(_file_fd, POLLIN, this);
@@ -268,12 +247,10 @@ void			Client::_handleCgi(void)
 
     DEBUG("Sending request to CGI");
     if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
-        filepath = joinPath(_server->root, _request.getUri());
-    // if (!pathExist(filepath))
-    //     throw HttpError(HTTP_STATUS_NOT_FOUND);
-    
+        filepath = joinPath(_server->root, _request.getRoute());
+
     if (isDirectory(filepath))
     {
         if (_location->index.size())
@@ -289,16 +266,13 @@ void			Client::_handleCgi(void)
             }
         }
     }
-    // if (!pathExist(filepath))
-    //     throw HttpError(HTTP_STATUS_NOT_FOUND);
-
     env.push_back("HTTP_METHOD=" + _request.getMethod());
     env.push_back("REQUEST_METHOD=" + _request.getMethod());
     env.push_back("SERVER_PROTOCOL=" + _request.getVersion());
     env.push_back("PATH_INFO=" + _request.getUri());
+    env.push_back("QUERY_STRING=" + _request.getQueryString());
     env.push_back("SCRIPT_FILENAME=" + filepath);
     env.push_back("REDIRECT_STATUS=CGI");
-
     for (std::map<std::string, std::string>::iterator it = _request.headers.begin(); it != _request.headers.end(); it++)
     {
         std::string var = "HTTP_" + it->first;
@@ -338,8 +312,7 @@ void			Client::_handleCgi(void)
         _file_fd = stdoutLink[0];
         close(stdoutLink[1]);
         close(stdinLink[0]);
-        _core->registerFd(_cgi_stdin_fd, POLLOUT, this);    
-        // _status = STATUS_WAIT_TO_WRITE_CGI;   
+        _core->registerFd(_cgi_stdin_fd, POLLOUT, this);       
         _setCallback(_cgi_stdin_fd,  &Client::_onReadyToWriteCgi);
         _core->registerFd(_file_fd, POLLIN, this); 
         _setCallback(_file_fd,  &Client::_onReadyToReadCgi);
@@ -394,7 +367,7 @@ void			Client::_onReadyToReadRequest(void)
             if (!_request.parse())
                 return;
         }
-
+        _status = STATUS_PROCESSING;
         // If we have read the whole request...
         // store the server and location of the request locally for convinience
         _server = _request.getServer();
@@ -422,7 +395,6 @@ void			Client::_onReadyToReadFile(void)
     bool empty = readFileToResponseBody();
     if (empty)
     {
-        // _status = STATUS_WAIT_TO_SEND;
         _setCallback(connection_fd,  &Client::_onReadyToSend);
         _core->unregisterFd(_file_fd);
         _core->registerFd(connection_fd, POLLOUT, this);
@@ -454,21 +426,15 @@ void			Client::_onReadyToSend(void)
 
 void            Client::_onReadyToWriteCgi(void)
 {
-    // USE POLL
-
-    // DEBUG("Writing to CGI"); 
     size_t size = _request.body.size() < 30000 ?  _request.body.size() : 30000;
 
     write(_cgi_stdin_fd, _request.body.c_str(), size);
     _request.body.erase(0, size);
-    printf("%ld\n", _request.body.size());
+    // printf("%ld\n", _request.body.size());
     if (!_request.body.empty())
         return;
     close(_cgi_stdin_fd);
     _core->unregisterFd(_cgi_stdin_fd);
-    // _status = STATUS_WAIT_TO_READ_CGI;
-    // _setCallback(_file_fd,  &Client::_onReadyToReadCgi);
-    // _core->registerFd(_file_fd, POLLIN, this); 
     DEBUG("Done writing to CGI"); 
 }
 
@@ -480,7 +446,6 @@ void            Client::_onReadyToReadCgi(void)
     bool    statusSet = false;
     size_t  bodyStart = 0;
 
-    // printf("CGI READY\n");
     int size = read(_file_fd, buff, sizeof(buff) - 1);
     buff[size] = 0;
     // printf("hello %d %s\n", size, buff);
@@ -523,7 +488,6 @@ void            Client::_onReadyToReadCgi(void)
                 _response.setStatus(HTTP_STATUS_SUCCESS);
             _core->unregisterFd(_file_fd);
             close(_file_fd);
-            // _status = STATUS_WAIT_TO_SEND;
             _setCallback(connection_fd,  &Client::_onReadyToSend);
             _core->registerFd(connection_fd, POLLOUT, this);
             return;
@@ -537,7 +501,6 @@ void            Client::_onReadyToReadCgi(void)
 
 void			Client::_onReadToWriteFile(void) {
     write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
-    // _status = STATUS_WAIT_TO_SEND;
     _core->unregisterFd(_file_fd);
     _setCallback(connection_fd,  &Client::_onReadyToSend);
     _core->registerFd(connection_fd, POLLOUT, this);
@@ -561,7 +524,6 @@ void			Client::_onHttpError(const HttpError& e)
     _response.setStatus(errorPage.code);
     _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
     _core->registerFd(_file_fd, POLLIN, this);
-    // _status = STATUS_WAIT_TO_READ_FILE;
     _setCallback(_file_fd,  &Client::_onReadyToReadFile);
     _core->unregisterFd(connection_fd);
 }

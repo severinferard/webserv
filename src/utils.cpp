@@ -142,3 +142,26 @@ bool parentDirExists(const std::string &path) {
     }
     return true;
 }
+
+std::string extractRoute(std::string filepath)
+{
+    size_t  i;
+
+    i = filepath.find('?');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+
+    i = filepath.find('#');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+    return filepath;
+}
+
+std::string extractQueryString(std::string uri)
+{
+    size_t  i = uri.find('?');
+
+    if (i != std::string::npos)
+        return uri.substr(i + 1);
+    return "";
+}

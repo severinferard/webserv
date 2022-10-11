@@ -29,17 +29,19 @@ class Request
         int                                 __log_fd;
         std::string                         _method;
         std::string			                _uri;
+        std::string                         _route;
+        std::string                         _queryString;
         std::string			                _version;
-        const Socket                             *_socket;
+        const Socket                       *_socket;
         Server                             *_server;
-        location_t                         _location;
+        location_t                          _location;
         bool                                _hasLocation;
         bool                                _headerReceived;
         std::string                         _payload;
         size_t                              _bodyStart;  
         size_t                              _contentLength;    
         bool                                _chunked;
-        t_chunk                              _currentChunk;
+        t_chunk                             _currentChunk;
 
         static void                         _addHeader(std::string line, std::map<std::string, std::string> &headers);
         void                                _setHeaders(std::map<std::string, std::string> headers);
@@ -61,6 +63,8 @@ class Request
         const std::map<std::string, std::string>  &getHeaders(void) const;
         std::string                         getBody(void) const;
         int                                 getFd(void) const;
+        std::string                         getRoute(void) const;
+        std::string                         getQueryString(void) const;
         location_t                          *getLocation(void) ;
         Server                              *getServer(void) const;
 };

@@ -26,6 +26,8 @@ std::string joinPath(const std::string &left, const std::string &right);
 bool pathExist(std::string path);
 void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *> &cstrings);
 bool parentDirExists(const std::string &path);
+std::string extractRoute(std::string filepath);
+std::string extractQueryString(std::string uri);
 
 template<typename K, typename V>
 bool hasKey(std::map<K, V>m, K key)
