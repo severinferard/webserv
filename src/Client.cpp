@@ -8,6 +8,7 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     _location(NULL),
     __log_fd(fd),
     _timedOut(false),
+    _isClosed(false),
     addr(addr),
     port(port),
     socket(socket),
@@ -83,6 +84,7 @@ void						Client::_initDefaultErrorPages(void)
 
 Client::~Client()
 {
+    // WARNING("Client destructor");
 }
 
 static void filter_filepath(std::string &filepath) {
@@ -441,6 +443,7 @@ void			Client::_onReadyToSend(void)
     DEBUG("Closing");
     close(connection_fd);
     _core->unregisterFd(connection_fd);
+    _isClosed = true;
 }
 
 void            Client::_onReadyToWriteCgi(void)
@@ -466,15 +469,15 @@ void            Client::_onReadyToWriteCgi(void)
 void            Client::_onReadyToReadCgi(void)
 {
     int status;
-    char    buff[100000];
+    char    buff[10000000];
     std::vector<std::string> lines;
     bool    statusSet = false;
     size_t  bodyStart = 0;
 
-    //printf("CGI READY\n");
+    // printf("CGI READY\n");
     int size = read(_file_fd, buff, sizeof(buff) - 1);
     buff[size] = 0;
-    //printf("hello %d %s\n", size, buff);
+    // printf("hello %d %s\n", size, buff);
     if (size > 0)
     {
         _cgiPayload.append(buff, size);
@@ -567,7 +570,7 @@ void			Client::_onHttpError(const HttpError& e)
         _callbacks.erase(fd);
     }
 
-void        Client::resume(int fd)
+bool        Client::resume(int fd)
 {
     try
     {
@@ -584,6 +587,7 @@ void        Client::resume(int fd)
         close(connection_fd);
         _core->unregisterFd(connection_fd);
     }
+    return _isClosed;
     
 }
 

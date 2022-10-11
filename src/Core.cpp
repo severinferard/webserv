@@ -41,7 +41,7 @@
                 sock->add_server(&(*server));
                 try
                 {
-                    registerFd(sock->listen(1000), POLLIN);
+                    registerFd(sock->listen(50), POLLIN);
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
@@ -73,7 +73,9 @@
             try {
                 // now = time(NULL);
                 ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
-                (void)ready;
+                if (!ready)
+                    printf("POLL SIZE %ld\n", _pollfds.size());
+                // (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
                 {
                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
@@ -93,7 +95,8 @@
                         if (_pollfds[i].revents)
                         {
                             client = _findClient(_pollfds[i].fd);
-                            client->resume(_pollfds[i].fd);
+                            if (client->resume(_pollfds[i].fd))
+                                delete client;
                         }
                     }
                 }

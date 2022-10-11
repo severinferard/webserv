@@ -79,6 +79,7 @@ class Client
 		bool			_timedOut;
 		int				_cgi_pid;
 		int				_cgi_stdin_fd;
+		bool			_isClosed;
 		void			_onReadyToReadRequest();
 		void			_onReadyToReadFile();
 		void			_onReadyToSend();
@@ -111,7 +112,7 @@ class Client
 		~Client();
 		Server *			findServer(void);
 		bool				readFileToResponseBody(void);
-		void				resume(int fd);
+		bool				resume(int fd);
 		void				bindCore(WebservCore *core);
 		void				timeout(void);
 
