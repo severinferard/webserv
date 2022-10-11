@@ -35,7 +35,7 @@ public:
     const size_t                        client_max_body_size;
     const int                           autoindex;
 
-    const location_t          *findLocation(std::string uri);
+    location_t          findLocation(std::string uri, bool *found);
     
 };
 

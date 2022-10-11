@@ -56,7 +56,8 @@ void            Client::_setupAutoIndex(std::string uri, std::string path)
     ss << "<pre>" << "\n";
     _response.appendToBody(ss.str());
     _core->registerFd(dirfd(_dp), POLLIN, this);
-    _status = STATUS_WAIT_TO_READ_DIR;
+    // _status = STATUS_WAIT_TO_READ_DIR;
+    _setCallback(dirfd(_dp), &Client::_onReadyToReadDir);
 
 }
 
@@ -88,6 +89,7 @@ void			Client::_onReadyToReadDir()
     // Close the html tags
     _response.appendToBody("</pre><hr></body></html>");
     _response.setStatus(HTTP_STATUS_SUCCESS);
-    _status = STATUS_WAIT_TO_SEND;
+    // _status = STATUS_WAIT_TO_SEND;
     _core->modifyFd(connection_fd, POLLOUT);
+    _setCallback(connection_fd, &Client::_onReadyToSend);
 }

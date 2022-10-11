@@ -14,6 +14,7 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     connection_fd(fd),
     connectionTimestamp(time(NULL))
 {
+    _setCallback(fd, &Client::_onReadyToReadRequest);
     _initDefaultErrorPages();
     _request = Request(socket, connection_fd);
     DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
@@ -150,7 +151,8 @@ void			Client::_handleGet(void)
         
         if (_file_fd <= 0)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
-        _status = STATUS_WAIT_TO_READ_FILE;
+        // _status = STATUS_WAIT_TO_READ_FILE;
+        _setCallback(_file_fd,  &Client::_onReadyToReadFile);
         _response.setStatus(HTTP_STATUS_SUCCESS);
         _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -173,14 +175,21 @@ void			Client::_handlePost(void) {
 
     // can't do a POST request on a directory
     if (isDirectory(filepath))
-	    throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+    {
+        _response.setStatus(HTTP_STATUS_SUCCESS);
+        _setCallback(connection_fd,  &Client::_onReadyToSend);
+        _core->registerFd(connection_fd, POLLOUT, this);
+    }
+	    // throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+
 
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
-    _status = STATUS_WAIT_TO_WRITE_FILE;
+    // _status = STATUS_WAIT_TO_WRITE_FILE;
     _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
 }
 
 void			Client::_handlePut(void)
@@ -207,7 +216,8 @@ void			Client::_handlePut(void)
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    _status = STATUS_WAIT_TO_WRITE_FILE;
+    // _status = STATUS_WAIT_TO_WRITE_FILE;
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
     _response.setStatus(HTTP_STATUS_CREATED);
     _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -233,7 +243,8 @@ void			Client::_handleDelete(void)
 
     remove(filepath.c_str());
 
-    _status = STATUS_WAIT_TO_WRITE_FILE;
+    // _status = STATUS_WAIT_TO_WRITE_FILE;
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
     _response.setStatus(HTTP_STATUS_SUCCESS);
     _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -252,12 +263,13 @@ void			Client::_handleCgi(void)
     std::vector<char *>         cEnv;
     std::string                 filepath;
 
+    DEBUG("Sending request to CGI");
     if (_location && !_location->root.empty())
         filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getUri()));
     else
         filepath = joinPath(_server->root, _request.getUri());
-    if (!pathExist(filepath))
-        throw HttpError(HTTP_STATUS_NOT_FOUND);
+    // if (!pathExist(filepath))
+    //     throw HttpError(HTTP_STATUS_NOT_FOUND);
     
     if (isDirectory(filepath))
     {
@@ -274,8 +286,8 @@ void			Client::_handleCgi(void)
             }
         }
     }
-    if (!pathExist(filepath))
-        throw HttpError(HTTP_STATUS_NOT_FOUND);
+    // if (!pathExist(filepath))
+    //     throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     env.push_back("HTTP_METHOD=" + _request.getMethod());
     env.push_back("REQUEST_METHOD=" + _request.getMethod());
@@ -283,6 +295,15 @@ void			Client::_handleCgi(void)
     env.push_back("PATH_INFO=" + _request.getUri());
     env.push_back("SCRIPT_FILENAME=" + filepath);
     env.push_back("REDIRECT_STATUS=CGI");
+
+    for (std::map<std::string, std::string>::iterator it = _request.headers.begin(); it != _request.headers.end(); it++)
+    {
+        std::string var = "HTTP_" + it->first;
+        std::transform(var.begin(), var.end(),var.begin(), ::toupper);
+        var += "=" + it->second;
+        std::replace(var.begin(), var.end(), '-', '_');
+        env.push_back(var);
+    }
     args.push_back(_location->cgi_pass);
 
     strVectorToCstrVector(env, cEnv);
@@ -315,7 +336,10 @@ void			Client::_handleCgi(void)
         close(stdoutLink[1]);
         close(stdinLink[0]);
         _core->registerFd(_cgi_stdin_fd, POLLOUT, this);    
-        _status = STATUS_WAIT_TO_WRITE_CGI;      
+        // _status = STATUS_WAIT_TO_WRITE_CGI;   
+        _setCallback(_cgi_stdin_fd,  &Client::_onReadyToWriteCgi);
+        _core->registerFd(_file_fd, POLLIN, this); 
+        _setCallback(_file_fd,  &Client::_onReadyToReadCgi);
     }
 }
 
@@ -395,9 +419,10 @@ void			Client::_onReadyToReadFile(void)
     bool empty = readFileToResponseBody();
     if (empty)
     {
-        _status = STATUS_WAIT_TO_SEND;
+        // _status = STATUS_WAIT_TO_SEND;
+        _setCallback(connection_fd,  &Client::_onReadyToSend);
         _core->unregisterFd(_file_fd);
-        _core->modifyFd(connection_fd, POLLOUT);
+        _core->registerFd(connection_fd, POLLOUT, this);
     }
 }
 
@@ -420,20 +445,28 @@ void			Client::_onReadyToSend(void)
 
 void            Client::_onReadyToWriteCgi(void)
 {
-    std::string body;
+    // USE POLL
 
-    body = _request.getBody();
-    write(_cgi_stdin_fd, body.c_str(), body.size());
+    // DEBUG("Writing to CGI"); 
+    size_t size = _request.body.size() < 30000 ?  _request.body.size() : 30000;
+
+    write(_cgi_stdin_fd, _request.body.c_str(), size);
+    _request.body.erase(0, size);
+    printf("%ld\n", _request.body.size());
+    if (!_request.body.empty())
+        return;
     close(_cgi_stdin_fd);
     _core->unregisterFd(_cgi_stdin_fd);
-    _status = STATUS_WAIT_TO_READ_CGI;
-    _core->registerFd(_file_fd, POLLIN, this);  
+    // _status = STATUS_WAIT_TO_READ_CGI;
+    // _setCallback(_file_fd,  &Client::_onReadyToReadCgi);
+    // _core->registerFd(_file_fd, POLLIN, this); 
+    DEBUG("Done writing to CGI"); 
 }
 
 void            Client::_onReadyToReadCgi(void)
 {
     int status;
-    char    buff[1000];
+    char    buff[10000000];
     std::vector<std::string> lines;
     bool    statusSet = false;
     size_t  bodyStart = 0;
@@ -445,6 +478,7 @@ void            Client::_onReadyToReadCgi(void)
     if (size > 0)
     {
         _cgiPayload.append(buff, size);
+        return ;
     } else if (size < 0)
     {
         throw std::runtime_error("Error reading CGI ouput");
@@ -480,8 +514,9 @@ void            Client::_onReadyToReadCgi(void)
                 _response.setStatus(HTTP_STATUS_SUCCESS);
             _core->unregisterFd(_file_fd);
             close(_file_fd);
-            _status = STATUS_WAIT_TO_SEND;
-            _core->modifyFd(connection_fd, POLLOUT);
+            // _status = STATUS_WAIT_TO_SEND;
+            _setCallback(connection_fd,  &Client::_onReadyToSend);
+            _core->registerFd(connection_fd, POLLOUT, this);
             return;
         }
         else if (finished < 0)
@@ -493,9 +528,10 @@ void            Client::_onReadyToReadCgi(void)
 
 void			Client::_onReadToWriteFile(void) {
     write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
-    _status = STATUS_WAIT_TO_SEND;
+    // _status = STATUS_WAIT_TO_SEND;
     _core->unregisterFd(_file_fd);
-    _core->modifyFd(connection_fd, POLLOUT);
+    _setCallback(connection_fd,  &Client::_onReadyToSend);
+    _core->registerFd(connection_fd, POLLOUT, this);
 }
 
 void			Client::_onHttpError(const HttpError& e)
@@ -516,44 +552,26 @@ void			Client::_onHttpError(const HttpError& e)
     _response.setStatus(errorPage.code);
     _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
     _core->registerFd(_file_fd, POLLIN, this);
-    _status = STATUS_WAIT_TO_READ_FILE;
+    // _status = STATUS_WAIT_TO_READ_FILE;
+    _setCallback(_file_fd,  &Client::_onReadyToReadFile);
+    _core->unregisterFd(connection_fd);
 }
 
-void        Client::resume(void)
+    void			Client::_setCallback(int fd, callback_t cb)
+    {
+        _callbacks[fd] = cb;
+    }
+
+    void			Client::_clearCallback(int fd)
+    {
+        _callbacks.erase(fd);
+    }
+
+void        Client::resume(int fd)
 {
     try
     {
-        switch (_status)
-        {
-        case STATUS_WAIT_FOR_REQUEST:
-            _onReadyToReadRequest();
-            break;
-        
-        case STATUS_WAIT_TO_READ_FILE:
-            _onReadyToReadFile();
-            break;
-        
-        case STATUS_WAIT_TO_SEND:
-            _onReadyToSend();
-            break;
-        case STATUS_WAIT_TO_READ_DIR:
-            _onReadyToReadDir();
-            break;
-
-        case STATUS_WAIT_TO_READ_CGI:
-            _onReadyToReadCgi();
-            break;
-        
-        case STATUS_WAIT_TO_WRITE_CGI:
-            _onReadyToWriteCgi();
-            break;
-
-        case STATUS_WAIT_TO_WRITE_FILE:
-            _onReadToWriteFile();
-            break;
-        default:
-            break;
-        }
+        (this->*(_callbacks[fd]))();
     }
     catch(const HttpError& e)
     {

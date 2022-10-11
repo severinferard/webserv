@@ -64,14 +64,14 @@
         Request             request;
         Socket              *sock;
         Client              *client;
-        time_t              now;
+        // time_t              now;
 
         _startListeningSockets();
 
         while (true)
         {
             try {
-                now = time(NULL);
+                // now = time(NULL);
                 ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
                 (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
@@ -87,12 +87,13 @@
                     }
                     else
                     {
-                        client = _findClient(_pollfds[i].fd);
-                        if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
-                            client->timeout();
+                        // client = _findClient(_pollfds[i].fd);
+                        // if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
+                        //     client->timeout();
                         if (_pollfds[i].revents)
                         {
-                            client->resume();
+                            client = _findClient(_pollfds[i].fd);
+                            client->resume(_pollfds[i].fd);
                         }
                     }
                 }
@@ -152,6 +153,15 @@
     {
         struct pollfd pfd;
 
+        if (hasKey<int, Client *>(_clients, fd))
+        {
+            for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
+            {
+                if (it->fd == fd)
+                    it->events = events;
+            }
+            return;
+        }
         pfd.fd = fd;
         pfd.events = events;
         _pollfds.push_back(pfd);

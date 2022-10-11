@@ -30,11 +30,10 @@ class Request
         std::string                         _method;
         std::string			                _uri;
         std::string			                _version;
-        std::map<std::string, std::string>  _headers;
-        std::string			                _body;
         const Socket                             *_socket;
         Server                             *_server;
-        location_t                         *_location;
+        location_t                         _location;
+        bool                                _hasLocation;
         bool                                _headerReceived;
         std::string                         _payload;
         size_t                              _bodyStart;  
@@ -46,6 +45,8 @@ class Request
         void                                _setHeaders(std::map<std::string, std::string> headers);
         Server *			                findServer(void);
     public:
+        std::string			                body;
+        std::map<std::string, std::string>  headers;
         Request();
         Request(const Socket *sock, int connection_fd);
         ~Request();
@@ -60,7 +61,7 @@ class Request
         const std::map<std::string, std::string>  &getHeaders(void) const;
         std::string                         getBody(void) const;
         int                                 getFd(void) const;
-        location_t                          *getLocation(void) const;
+        location_t                          *getLocation(void) ;
         Server                              *getServer(void) const;
 };
 

@@ -27,7 +27,7 @@
 #define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
 #define DEFAULT_ERROR_PAGE_408 "./src/www/errors/408.html"
 #define DEFAULT_ERROR_PAGE_411 "./src/www/errors/411.html"
-#define DEFAULT_ERROR_PAGE_413 "./src/www/errors/411.html"
+#define DEFAULT_ERROR_PAGE_413 "./src/www/errors/413.html"
 #define DEFAULT_ERROR_PAGE_415 "./src/www/errors/415.html"
 #define DEFAULT_ERROR_PAGE_500 "./src/www/errors/500.html"
 #define DEFAULT_ERROR_PAGE_501 "./src/www/errors/501.html"
@@ -56,6 +56,8 @@ class Server;
 #define EPOLL_OP_MODIFY 2
 #define EPOLL_OP_REMOVE 3
 
+typedef void(Client::*callback_t)(void);
+
 class Client
 {
 	private:
@@ -65,10 +67,12 @@ class Client
 		Response		_response;
 		Server			*_server;
 		location_t		*_location;
+		location_t		__location;
 		WebservCore		*_core;
 		DIR				*_dp;
 		std::vector<struct dirent> _autoindexNodes;
 		std::string		_cgiPayload;
+		std::map<int, callback_t> _callbacks;
 
 		int				__log_fd;
 		int				_file_fd;
@@ -92,6 +96,8 @@ class Client
 		void			_handleCgi(void);
 		void			_setupAutoIndex(std::string uri, std::string path);
 		static void		_initDefaultErrorPages(void);
+		void			_setCallback(int fd, callback_t cb);
+		void			_clearCallback(int fd);
 		
 	public:
 		const std::string    addr;
@@ -105,7 +111,7 @@ class Client
 		~Client();
 		Server *			findServer(void);
 		bool				readFileToResponseBody(void);
-		void				resume();
+		void				resume(int fd);
 		void				bindCore(WebservCore *core);
 		void				timeout(void);
 

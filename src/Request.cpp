@@ -4,7 +4,7 @@ static const std::string LINE_DELIMITER = "\r\n";
 
 Request::Request():
 _server(NULL),
-_location(NULL),
+_hasLocation(false),
 _headerReceived(false),
 _chunked(false)
 {
@@ -15,7 +15,7 @@ _fd(sock->get_fd()),
 __log_fd(connection_fd),
 _socket(sock),
 _server(NULL),
-_location(NULL),
+_hasLocation(false),
 _headerReceived(false),
 _chunked(false)
 {
@@ -43,12 +43,12 @@ std::string                         Request::getVersion(void) const
 
 const std::map<std::string, std::string>  &Request::getHeaders(void) const
 {
-    return _headers;
+    return headers;
 }
 
 std::string                         Request::getBody(void) const
 {
-    return _body;
+    return body;
 }
 
 int         Request::getFd(void) const
@@ -61,9 +61,9 @@ std::string Request::getPayload(void) const
     return _payload;
 }
 
-location_t                          *Request::getLocation(void) const
+location_t                          *Request::getLocation(void)
 {
-    return _location;
+    return _hasLocation ? &_location : NULL;
 }
 
 Server                              *Request::getServer(void) const
@@ -73,7 +73,7 @@ Server                              *Request::getServer(void) const
 
 void        Request::_setHeaders(std::map<std::string, std::string> headers)
 {
-    _headers = headers;
+    this->headers = headers;
 }
 
 void        Request::_addHeader(std::string line, std::map<std::string, std::string> &headers)
@@ -137,19 +137,19 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
     std::vector<std::string>            allowedMethods;
 
     // Throw 400 if the request doesnt provide a Host header
-    if (!hasKey<std::string, std::string>(_headers, "Host") && !hasKey<std::string, std::string>(_headers, "host"))
+    if (!hasKey<std::string, std::string>(headers, "Host") && !hasKey<std::string, std::string>(headers, "host"))
         throw HttpError(HTTP_STATUS_BAD_REQUEST);
 
     // Find the right server and location from the headers data
     _server = findServer();
     DEBUG("root: %s", _server->root.c_str());
 
-    _location = const_cast<location_t *>(_server->findLocation(_uri));
-    DEBUG("location: %s", (_location ? _location->path.c_str() : "No location"));
+    _location = _server->findLocation(_uri, &_hasLocation);
+    DEBUG("location: %s", (_hasLocation ? _location.path.c_str() : "No location"));
 
     // Check if the methods are restricted for this route
-    allowedMethods = _location && !_location->allowed_methods.empty()
-            ? _location->allowed_methods
+    allowedMethods = _hasLocation && !_location.allowed_methods.empty()
+            ? _location.allowed_methods
             : _server->allowed_methods;
 
     // If so, return 405 if the method is not allowed
@@ -165,9 +165,9 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
     if (_method == "POST" || _method == "PUT")
     {
         std::string transferEncoding;
-        if (hasKey<std::string, std::string>(_headers, "transfer-encoding"))
+        if (hasKey<std::string, std::string>(headers, "transfer-encoding"))
         {
-            transferEncoding = _headers.at("transfer-encoding");
+            transferEncoding = headers.at("transfer-encoding");
             if (transferEncoding != "chunked")
                 throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
             _chunked = true;
@@ -176,7 +176,7 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         }
 
         // Return 411 if the Content-Length header is not set
-        if (transferEncoding.empty() && !hasKey<std::string, std::string>(_headers, "content-length"))
+        if (transferEncoding.empty() && !hasKey<std::string, std::string>(headers, "content-length"))
             throw HttpError(HTTP_STATUS_LENGTH_REQUIRED);
 
         if (_chunked)
@@ -184,10 +184,10 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
 
         // Read the Content-Length and check if it's valid
         char *end;
-        _contentLength = strtoul(_headers["content-length"].c_str(), &end, 10);
-        if (end == _headers["content-length"].c_str() || _contentLength <= 0)
+        _contentLength = strtoul(headers["content-length"].c_str(), &end, 10);
+        if (end == headers["content-length"].c_str() || _contentLength <= 0)
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
-        if (_location && _contentLength > _location->client_max_body_size)
+        if (_hasLocation && _contentLength > _location.client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
         if (_contentLength > _server->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
@@ -249,7 +249,7 @@ int        Request::parse(void)
         {   
             _headerReceived = true;
             _setHeaders(headers);
-            // print_headers(_headers);
+            print_headers(headers);
             validate(lines, headerLineCount);
         }
         else
@@ -275,6 +275,11 @@ int        Request::parse(void)
                     std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
                     ss << line;
                     ss >> std::hex >> _currentChunk.size;
+                    printf("max %ld %ld\n", body.size() + _currentChunk.size, _location.client_max_body_size);
+                    if (_hasLocation && body.size() + _currentChunk.size > _location.client_max_body_size)
+                        throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
+                    if (!_hasLocation && body.size() + _currentChunk.size > _server->client_max_body_size)
+                        throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
                     _currentChunk.hasSize = true;
                     _currentChunk.start += line.size() + 2;
                     // Stop reading if the chunk is empty
@@ -285,7 +290,7 @@ int        Request::parse(void)
                 if (_payload.size() - _currentChunk.start < _currentChunk.size)
                     return false;
                 // Else append the current chunk to the body of the request
-                _body.append(_payload.substr(_currentChunk.start, _currentChunk.size));
+                body.append(_payload.substr(_currentChunk.start, _currentChunk.size));
                 _currentChunk.hasSize = false;
                 _currentChunk.start += _currentChunk.size + LINE_DELIMITER.size();
             }
@@ -296,7 +301,7 @@ int        Request::parse(void)
         {
             if (_payload.size() - _bodyStart < _contentLength)
                 return false;
-            _body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
+            body = _payload.substr(_bodyStart, _payload.size() - _bodyStart);
             return true;
         }
     }
@@ -358,11 +363,11 @@ Server *			Request::findServer(void)
         candidates = results;
 
 
-    std::map<std::string, std::string>::const_iterator host_it = _headers.find("host");
-    if (host_it == _headers.end())
-        host_it = _headers.find("Host");
+    std::map<std::string, std::string>::const_iterator host_it = headers.find("host");
+    if (host_it == headers.end())
+        host_it = headers.find("Host");
     // If the request doesnt contain a Host header, return the first candidate.
-    if (host_it == _headers.end())
+    if (host_it == headers.end())
         return candidates[0];
     std::string hostName = host_it->second;
 
