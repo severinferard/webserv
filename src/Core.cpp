@@ -73,9 +73,9 @@
             try {
                 // now = time(NULL);
                 ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
-                if (!ready)
-                    printf("POLL SIZE %ld\n", _pollfds.size());
-                // (void)ready;
+                // if (!ready)
+                    printf("POLL SIZE %ld %ld\n", _pollfds.size(), _clients.size());
+                (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
                 {
                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
@@ -100,7 +100,6 @@
                         }
                     }
                 }
-                
             }
             catch (std::exception &e)
             {

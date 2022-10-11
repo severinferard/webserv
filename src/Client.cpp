@@ -15,6 +15,7 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     connection_fd(fd),
     connectionTimestamp(time(NULL))
 {
+    gettimeofday(&_t0, NULL);
     _setCallback(fd, &Client::_onReadyToReadRequest);
     _initDefaultErrorPages();
     _request = Request(socket, connection_fd);
@@ -430,17 +431,22 @@ void			Client::_onReadyToReadFile(void)
 
 void			Client::_onReadyToSend(void)
 {
+    struct timeval now;
+    gettimeofday(&now, NULL);
+
+    uint64_t delay =  ((now.tv_sec - _t0.tv_sec) * 1000000 + now.tv_usec - _t0.tv_usec) / 1000;
+
     if (_response.getStatus() >= 200 && _response.getStatus() < 300)
-        INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+        INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
     else
-        INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET, addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus());
+        INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
     if (_request.getMethod() == "HEAD")
         _response.setIgnoreBody(true);
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
     _response.send(connection_fd);
-    DEBUG("Closing");
+    DEBUG("Closing ");
     close(connection_fd);
     _core->unregisterFd(connection_fd);
     _isClosed = true;

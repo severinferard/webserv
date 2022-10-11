@@ -73,6 +73,7 @@ class Client
 		std::vector<struct dirent> _autoindexNodes;
 		std::string		_cgiPayload;
 		std::map<int, callback_t> _callbacks;
+		struct timeval	_t0;
 
 		int				__log_fd;
 		int				_file_fd;
