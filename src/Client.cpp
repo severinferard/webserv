@@ -24,18 +24,6 @@ Client::~Client()
 {
 }
 
-static void filter_filepath(std::string &filepath) {
-    size_t  i;
-
-    i = filepath.find('?');
-    if (i != std::string::npos)
-	filepath = filepath.substr(0, i);
-
-    i = filepath.find('#');
-    if (i != std::string::npos)
-	filepath = filepath.substr(0, i);
-}
-
 void			Client::_handleGet(void)
 {
     std::string filepath;
@@ -62,6 +50,7 @@ void			Client::_handleGet(void)
             {
                 Log(DebugP, "Serving Autoindex");
                 _autoIndex(_request.getUri(), filepath);
+                _response.setUri(_request.getUri());
                 _response.setStatus(HTTP_STATUS_SUCCESS);
                 _status = STATUS_WAIT_TO_SEND;
                 _core->modifyFd(connection_fd, POLLOUT);
@@ -77,6 +66,7 @@ void			Client::_handleGet(void)
         if (_file_fd <= 0)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
         _status = STATUS_WAIT_TO_READ_FILE;
+	_response.setUri(_request.getUri());
         _response.setStatus(HTTP_STATUS_SUCCESS);
         _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -107,6 +97,7 @@ void			Client::_handlePost(void) {
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setUri(_request.getUri());
     _response.setStatus(HTTP_STATUS_SUCCESS);
     _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -134,6 +125,7 @@ void			Client::_handlePut(void)
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setUri(_request.getUri());
     _response.setStatus(HTTP_STATUS_SUCCESS);
     _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -160,6 +152,7 @@ void			Client::_handleDelete(void)
     remove(filepath.c_str());
 
     _status = STATUS_WAIT_TO_WRITE_FILE;
+    _response.setUri(_request.getUri());
     _response.setStatus(HTTP_STATUS_SUCCESS);
     _core->registerFd(_file_fd, POLLIN, this);
 }
@@ -316,6 +309,7 @@ void        Client::resume(void)
 	else
 	    errorPage =  _server->error_pages.at(e.status);
 	Log(DebugP, "error page %s\n", errorPage.path.c_str());
+	//_response.setUri(_request.getUri());
 	_response.setStatus(errorPage.code);
 	_file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
 	_core->registerFd(_file_fd, POLLIN, this);

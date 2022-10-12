@@ -21,7 +21,9 @@ bool uriIsDirectory(std::string uri);
 bool isValidHttpMethod(std::string method);
 std::string toString(const unsigned long& value);
 std::string joinPath(const std::string &left, const std::string &right);
+std::string get_extension(std::string uri);
 bool parentDirExists(const std::string &path);
+void filter_filepath(std::string &filepath);
 
 template<typename K, typename V>
 bool hasKey(std::map<K, V>m, K key)

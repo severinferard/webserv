@@ -124,3 +124,27 @@ bool parentDirExists(const std::string &path) {
     }
     return true;
 }
+
+void filter_filepath(std::string &filepath) {
+    size_t  i;
+
+    i = filepath.find('?');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+
+    i = filepath.find('#');
+    if (i != std::string::npos)
+	filepath = filepath.substr(0, i);
+}
+
+std::string get_extension(std::string uri) {
+    size_t  i;
+
+    filter_filepath(uri);
+
+    i = uri.rfind('.');
+    if (i == std::string::npos)
+	return "html";
+
+    return uri.substr(i+1);
+}
