@@ -76,7 +76,7 @@ const std::vector<Server *> *Socket::get_servers(void) const
     return &_servers;
 }
 
-Client          *Socket::acceptConnection(void) const
+Client          *Socket::acceptConnection(WebservCore *core) const
 {
     struct sockaddr_in  cli_addr;
     socklen_t           cli_len;
@@ -85,5 +85,5 @@ Client          *Socket::acceptConnection(void) const
     cli_len = sizeof(cli_addr);
     new_fd = ::accept(_fd, (struct sockaddr *) &cli_addr, &cli_len);
 
-    return new Client(inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), this, new_fd);
+    return new Client(core, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port), this, new_fd);
 }

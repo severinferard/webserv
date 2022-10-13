@@ -1,8 +1,11 @@
 #include "Client.hpp"
-char Client::_buffer[BUFFER_SIZE];
-std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES;
 
-Client::Client(std::string addr, int port, const Socket *socket, int fd):
+char                        Client::_buffer[BUFFER_SIZE];
+std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES = Client::initDefaultErrorPages();
+
+
+Client::Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd):
+    _core(core),
     _status(STATUS_WAIT_FOR_REQUEST),
     _server(NULL),
     _location(NULL),
@@ -15,79 +18,39 @@ Client::Client(std::string addr, int port, const Socket *socket, int fd):
     connection_fd(fd),
     connectionTimestamp(time(NULL))
 {
+    // Save te current timestamp to calculate the request time
     gettimeofday(&_t0, NULL);
-    _setCallback(fd, &Client::_onReadyToReadRequest);
-    _initDefaultErrorPages();
+    // Add a callback on the client socket fd to read the request
+    _setCallback(fd, &Client::_onReadyToReadRequest, POLLIN);
+    // Create the Request object to handle the request
     _request = Request(socket, connection_fd);
     DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
-void						Client::_initDefaultErrorPages(void)
-{
-	error_page_t page;
-
-    page.code = 400;
-	page.ret = 400;
-	page.path = DEFAULT_ERROR_PAGE_400;
-	Client::DEFAULT_ERROR_PAGES[400] = page;
-
-	page.code = 404;
-	page.ret = 404;
-	page.path = DEFAULT_ERROR_PAGE_404;
-	Client::DEFAULT_ERROR_PAGES[404] = page;
-
-	page.code = 405;
-	page.ret = 405;
-	page.path = DEFAULT_ERROR_PAGE_405;
-	Client::DEFAULT_ERROR_PAGES[405] = page;
-
-    
-    page.code = 408;
-	page.ret = 408;
-	page.path = DEFAULT_ERROR_PAGE_408;
-	Client::DEFAULT_ERROR_PAGES[408] = page;
-
-	page.code = 411;
-	page.ret = 411;
-	page.path = DEFAULT_ERROR_PAGE_411;
-	Client::DEFAULT_ERROR_PAGES[411] = page;
-
-    page.code = 413;
-	page.ret = 413;
-	page.path = DEFAULT_ERROR_PAGE_413;
-	Client::DEFAULT_ERROR_PAGES[413] = page;
-
-	page.code = 415;
-	page.ret = 415;
-	page.path = DEFAULT_ERROR_PAGE_415;
-	Client::DEFAULT_ERROR_PAGES[415] = page;
-
-	page.code = 500;
-	page.ret = 500;
-	page.path = DEFAULT_ERROR_PAGE_500;
-	Client::DEFAULT_ERROR_PAGES[500] = page;
-
-	page.code = 501;
-	page.ret = 501;
-	page.path = DEFAULT_ERROR_PAGE_501;
-	Client::DEFAULT_ERROR_PAGES[501] = page;
-
-    page.code = 504;
-	page.ret = 504;
-	page.path = DEFAULT_ERROR_PAGE_504;
-	Client::DEFAULT_ERROR_PAGES[504] = page;
-
-    page.code = 505;
-	page.ret = 505;
-	page.path = DEFAULT_ERROR_PAGE_505;
-	Client::DEFAULT_ERROR_PAGES[505] = page;
-}
-
 Client::~Client()
 {
-    // WARNING("Client destructor");
 }
 
+// Class method called once to initialize the Client::DEFAULT_ERROR_PAGES constant
+std::map<int, error_page_t>						Client::initDefaultErrorPages(void)
+{
+    std::map<int, error_page_t> ret;
+	error_page_t page;
+
+    for (size_t i = 0; i < sizeof(HTTP_ERRORS_STR) / sizeof(const char *); i++)
+    {
+        int code = atoi(HTTP_ERRORS_STR[i]);
+        page.code = code;
+        page.ret =  code;
+        page.path = std::string(DEFAULT_ERROR_PAGES_ROOT) + HTTP_ERRORS_STR[i] + ".html";
+        ret[code] =  page;
+    }
+    
+    return ret;
+}
+
+// Given a location and a route, return the route relative to that location.
+// Example: location: /directory and route /directory/foo, return /foo
 std::string getLocationRelativeRoute(location_t location, std::string route)
 {
     if (location.modifier == PATH_ENDWITH)
@@ -98,6 +61,8 @@ std::string getLocationRelativeRoute(location_t location, std::string route)
 
 void			Client::_handleHead(void)
 {
+    // HEAD requests are handled exactly like GET, except that we don't send the request body in the Response::send()
+    _response.setIgnoreBody(true);
     _handleGet();
 }
 
@@ -107,9 +72,7 @@ void			Client::_handleGet(void)
 
     // Generate the file path from the configured root
     if (_location && !_location->root.empty())
-    {
         filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
-    }
     else
         filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
@@ -128,10 +91,13 @@ void			Client::_handleGet(void)
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
                 DEBUG("Serving Autoindex");
+                _response.setHeader("Content-Type", "html");
                 _setupAutoIndex(_request.getRoute(), filepath);
                 return;
             }
-            // Otherwise the bad fd will be catched downstream and raise a 404.
+            // Otherwise throw a 403.
+            if (_file_fd < 0)
+                throw HttpError(HTTP_STATUS_FORBIDDEN);
         }
         else
         {
@@ -140,9 +106,9 @@ void			Client::_handleGet(void)
         
         if (_file_fd <= 0)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
-        _setCallback(_file_fd,  &Client::_onReadyToReadFile);
+        _setCallback(_file_fd,  &Client::_onReadyToReadFile, POLLIN);
         _response.setStatus(HTTP_STATUS_SUCCESS);
-        _core->registerFd(_file_fd, POLLIN, this);
+        _response.setHeader("Content-Type", Response::getContentType(_request.getRoute()));
 }
 
 void			Client::_handlePost(void) {
@@ -164,8 +130,7 @@ void			Client::_handlePost(void) {
     if (isDirectory(filepath))
     {
         _response.setStatus(HTTP_STATUS_SUCCESS);
-        _setCallback(connection_fd,  &Client::_onReadyToSend);
-        _core->registerFd(connection_fd, POLLOUT, this);
+        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
     }
 	    // throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
@@ -174,8 +139,7 @@ void			Client::_handlePost(void) {
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     _response.setStatus(HTTP_STATUS_CREATED);
-    _core->registerFd(_file_fd, POLLIN, this);
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
 }
 
 void			Client::_handlePut(void)
@@ -201,9 +165,8 @@ void			Client::_handlePut(void)
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_CREATED);
-    _core->registerFd(_file_fd, POLLIN, this);
 }
 
 void			Client::_handleDelete(void)
@@ -226,11 +189,9 @@ void			Client::_handleDelete(void)
 
     remove(filepath.c_str());
 
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile);
+    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_SUCCESS);
-    _core->registerFd(_file_fd, POLLIN, this);
 }
-
 
 void			Client::_handleCgi(void)
 {
@@ -312,10 +273,8 @@ void			Client::_handleCgi(void)
         _file_fd = stdoutLink[0];
         close(stdoutLink[1]);
         close(stdinLink[0]);
-        _core->registerFd(_cgi_stdin_fd, POLLOUT, this);       
-        _setCallback(_cgi_stdin_fd,  &Client::_onReadyToWriteCgi);
-        _core->registerFd(_file_fd, POLLIN, this); 
-        _setCallback(_file_fd,  &Client::_onReadyToReadCgi);
+        _setCallback(_cgi_stdin_fd,  &Client::_onReadyToWriteCgi, POLLOUT);
+        _setCallback(_file_fd,  &Client::_onReadyToReadCgi, POLLIN);
     }
 }
 
@@ -338,10 +297,12 @@ bool	Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
     _buffer[ret] = 0; 
+    printf("%ld %d\n", std::string(_buffer, ret).size(), ret);
     if (ret > 0)
-        _response.appendToBody(_buffer);
+        _response.appendToBody(std::string(_buffer, ret));
     if (ret < BUFFER_SIZE - 1 ||  ret <= 0)
     {
+        printf("close\n");
         close(_file_fd);
         return true;
     }
@@ -395,9 +356,8 @@ void			Client::_onReadyToReadFile(void)
     bool empty = readFileToResponseBody();
     if (empty)
     {
-        _setCallback(connection_fd,  &Client::_onReadyToSend);
-        _core->unregisterFd(_file_fd);
-        _core->registerFd(connection_fd, POLLOUT, this);
+        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+        _clearCallback(_file_fd);
     }
 }
 
@@ -412,15 +372,13 @@ void			Client::_onReadyToSend(void)
         INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
     else
         INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
-    if (_request.getMethod() == "HEAD")
-        _response.setIgnoreBody(true);
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
     _response.send(connection_fd);
     DEBUG("Closing ");
     close(connection_fd);
-    _core->unregisterFd(connection_fd);
+    _clearCallback(connection_fd);
     _isClosed = true;
 }
 
@@ -434,7 +392,7 @@ void            Client::_onReadyToWriteCgi(void)
     if (!_request.body.empty())
         return;
     close(_cgi_stdin_fd);
-    _core->unregisterFd(_cgi_stdin_fd);
+    _clearCallback(_cgi_stdin_fd);
     DEBUG("Done writing to CGI"); 
 }
 
@@ -486,10 +444,9 @@ void            Client::_onReadyToReadCgi(void)
             _response.appendToBody(_cgiPayload.substr(bodyStart, _cgiPayload.size() - bodyStart));
             if (!statusSet)
                 _response.setStatus(HTTP_STATUS_SUCCESS);
-            _core->unregisterFd(_file_fd);
+            _clearCallback(_file_fd);
             close(_file_fd);
-            _setCallback(connection_fd,  &Client::_onReadyToSend);
-            _core->registerFd(connection_fd, POLLOUT, this);
+            _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
             return;
         }
         else if (finished < 0)
@@ -501,9 +458,8 @@ void            Client::_onReadyToReadCgi(void)
 
 void			Client::_onReadToWriteFile(void) {
     write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
-    _core->unregisterFd(_file_fd);
-    _setCallback(connection_fd,  &Client::_onReadyToSend);
-    _core->registerFd(connection_fd, POLLOUT, this);
+    _clearCallback(_file_fd);
+    _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
 }
 
 void			Client::_onHttpError(const HttpError& e)
@@ -523,18 +479,23 @@ void			Client::_onHttpError(const HttpError& e)
     DEBUG("Error page: %s", errorPage.path.c_str());
     _response.setStatus(errorPage.code);
     _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
-    _core->registerFd(_file_fd, POLLIN, this);
-    _setCallback(_file_fd,  &Client::_onReadyToReadFile);
-    _core->unregisterFd(connection_fd);
+    _setCallback(_file_fd,  &Client::_onReadyToReadFile, POLLIN);
+    _clearCallback(connection_fd);
 }
 
     void			Client::_setCallback(int fd, callback_t cb)
     {
         _callbacks[fd] = cb;
     }
+    void			Client::_setCallback(int fd, callback_t cb, uint32_t events)
+    {
+        _core->registerFd(fd, events, this);
+        _callbacks[fd] = cb;
+    }
 
     void			Client::_clearCallback(int fd)
     {
+        _core->unregisterFd(fd);
         _callbacks.erase(fd);
     }
 
@@ -553,7 +514,7 @@ bool        Client::resume(int fd)
         std::cout << e.what() << std::endl;
         DEBUG("Closing");
         close(connection_fd);
-        _core->unregisterFd(connection_fd);
+        _clearCallback(connection_fd);
     }
     return _isClosed;
     
@@ -695,11 +656,6 @@ Server *			Client::findServer(void)
     
     // If no server is found, fallback to the default server.
     return candidates.front();
-}
-
-void				Client::bindCore(WebservCore *core)
-{
-    _core = core;
 }
 
 void				Client::timeout(void)

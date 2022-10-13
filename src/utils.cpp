@@ -165,3 +165,14 @@ std::string extractQueryString(std::string uri)
         return uri.substr(i + 1);
     return "";
 }
+
+std::string getExtension(std::string route)
+{
+     size_t  i;
+
+     i = route.rfind('.');
+     if (i == std::string::npos)
+ 	return "html";
+
+     return route.substr(i+1);
+ }

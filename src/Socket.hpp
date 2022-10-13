@@ -19,6 +19,7 @@
 class Server;
 class ListenOperation;
 class Client;
+class WebservCore;
 
 class Socket {
     private:
@@ -35,7 +36,7 @@ class Socket {
 
         int                         listen(int backlog = 5);
         void                        add_server(Server * server);
-        Client                      *acceptConnection(void) const;
+        Client                      *acceptConnection(WebservCore *core) const;
 
         std::string                 get_host(void) const;
         uint32_t                    get_port(void) const;

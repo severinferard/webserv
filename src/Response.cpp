@@ -1,31 +1,34 @@
 #include "Response.hpp"
 
-std::map<int, std::string> Response::HTTP_STATUS;
+std::map<int, std::string> Response::HTTP_STATUS = Response::initHttpStatus();
+std::map<std::string, std::string> Response::MIME_TYPES = initMimeTypes();
 
 Response::Response()
 {
-    _initHttpStatus();
 }
 
 Response::~Response()
 {
 }
 
-void Response::_initHttpStatus(void)
+std::map<int, std::string>  Response::initHttpStatus(void)
 {
-    Response::HTTP_STATUS[200] = "OK";
-    Response::HTTP_STATUS[201] = "Created";
-    Response::HTTP_STATUS[400] = "Bad Request";
-    Response::HTTP_STATUS[403] = "Forbidden";
-    Response::HTTP_STATUS[404] = "Not Found";
-    Response::HTTP_STATUS[408] = "Request Timeout";
-    Response::HTTP_STATUS[411] = "Length Required";
-    Response::HTTP_STATUS[413] = "Payload Too Large";
-    Response::HTTP_STATUS[415] = "Unsupported Media Type";
-    Response::HTTP_STATUS[500] = "Internal Server Error";
-    Response::HTTP_STATUS[501] = "Not Implemented";
-    Response::HTTP_STATUS[504] = "Gateway Timeout";
-    Response::HTTP_STATUS[505] = "HTTP Version Not Supported";
+    std::map<int, std::string> ret;
+
+    ret[200] = "OK";
+    ret[201] = "Created";
+    ret[400] = "Bad Request";
+    ret[403] = "Forbidden";
+    ret[404] = "Not Found";
+    ret[408] = "Request Timeout";
+    ret[411] = "Length Required";
+    ret[413] = "Payload Too Large";
+    ret[415] = "Unsupported Media Type";
+    ret[500] = "Internal Server Error";
+    ret[501] = "Not Implemented";
+    ret[504] = "Gateway Timeout";
+    ret[505] = "HTTP Version Not Supported";
+    return ret;
 }
 
 void Response::setHeader(std::string fieldName, std::string value)
@@ -36,6 +39,13 @@ void Response::setHeader(std::string fieldName, std::string value)
 void Response::appendToBody(std::string str)
 {
     _body.append(str);
+}
+
+void Response::appendToBody(std::string str, size_t size)
+{
+    printf("test %ld %ld\n", str.size(), size);
+    _body.append(str, size);
+    printf("2\n");
 }
 
 void Response::setStatus(int status)
@@ -52,6 +62,13 @@ void        Response::setIgnoreBody(bool b)
 {
     _ignoreBody = b;
 }
+
+std::string  Response::getContentType(std::string ext)
+{
+    if (Response::MIME_TYPES.find(ext) == Response::MIME_TYPES.end())
+ 	    return "html";
+    return Response::MIME_TYPES[ext];
+ }
 
 void Response::send(int fd)
 {

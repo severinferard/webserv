@@ -80,10 +80,10 @@
                     {
                         if (!_pollfds[i].revents)
                             continue;
-                        client = sock->acceptConnection();
-                        client->bindCore(this);
+                        client = sock->acceptConnection(this);
+                        // client->bindCore(this);
                         
-                        registerFd(client->connection_fd, POLLIN, client);
+                        // registerFd(client->connection_fd, POLLIN, client);
                     }
                     else
                     {

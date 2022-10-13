@@ -6,7 +6,6 @@
 # include <iostream>
 # include "utils.hpp"
 # include <sys/socket.h>
-
 class Response
 {
     private:
@@ -15,18 +14,21 @@ class Response
         std::string _payload;
         int _status;
         bool                                _ignoreBody;
-
-        static void _initHttpStatus(void);
     
     public:
         Response();
         ~Response();
 
         static std::map<int, std::string> HTTP_STATUS;
+        static std::map<std::string, std::string> MIME_TYPES;
+        static std::map<int, std::string> initHttpStatus(void);
+        static std::map<std::string, std::string> initMimeTypes(void);
+        static std::string     getContentType(std::string route);
 
         void setHeader(std::string fieldName, std::string value);
         void setStatus(int status);
         int getStatus(void) const;
+        void appendToBody(std::string str, size_t size);
         void appendToBody(std::string str);
         void appendToRawPayload(std::string str);
         void send(int fd);

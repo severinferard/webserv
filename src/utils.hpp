@@ -28,6 +28,7 @@ void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *>
 bool parentDirExists(const std::string &path);
 std::string extractRoute(std::string filepath);
 std::string extractQueryString(std::string uri);
+std::string getExtension(std::string route);
 
 template<typename K, typename V>
 bool hasKey(std::map<K, V>m, K key)

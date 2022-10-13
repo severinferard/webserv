@@ -22,18 +22,6 @@
 #include <sys/types.h>
 #include <dirent.h>
 
-#define DEFAULT_ERROR_PAGE_400 "./src/www/errors/400.html"
-#define DEFAULT_ERROR_PAGE_404 "./src/www/errors/404.html"
-#define DEFAULT_ERROR_PAGE_405 "./src/www/errors/405.html"
-#define DEFAULT_ERROR_PAGE_408 "./src/www/errors/408.html"
-#define DEFAULT_ERROR_PAGE_411 "./src/www/errors/411.html"
-#define DEFAULT_ERROR_PAGE_413 "./src/www/errors/413.html"
-#define DEFAULT_ERROR_PAGE_415 "./src/www/errors/415.html"
-#define DEFAULT_ERROR_PAGE_500 "./src/www/errors/500.html"
-#define DEFAULT_ERROR_PAGE_501 "./src/www/errors/501.html"
-#define DEFAULT_ERROR_PAGE_504 "./src/www/errors/504.html"
-#define DEFAULT_ERROR_PAGE_505 "./src/www/errors/505.html"
-
 typedef enum ClientStatus_s {
 	STATUS_WAIT_FOR_REQUEST,
 	STATUS_PROCESSING
@@ -57,13 +45,13 @@ class Client
 {
 	private:
 		static char		_buffer[BUFFER_SIZE];
+		WebservCore		*_core;
 		ClientStatus_t	_status;
 		Request			_request;
 		Response		_response;
 		Server			*_server;
 		location_t		*_location;
 		location_t		__location;
-		WebservCore		*_core;
 		DIR				*_dp;
 		std::vector<struct dirent> _autoindexNodes;
 		std::string		_cgiPayload;
@@ -92,8 +80,8 @@ class Client
 		void			_handleDelete(void);
 		void			_handleCgi(void);
 		void			_setupAutoIndex(std::string uri, std::string path);
-		static void		_initDefaultErrorPages(void);
 		void			_setCallback(int fd, callback_t cb);
+		void			_setCallback(int fd, callback_t cb, u_int32_t events);
 		void			_clearCallback(int fd);
 		
 	public:
@@ -104,13 +92,13 @@ class Client
 		static std::map<int, error_page_t>  DEFAULT_ERROR_PAGES;
 		const time_t					connectionTimestamp;
 
-		Client(std::string addr, int port, const Socket *socket, int fd);
+		Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd);
 		~Client();
 		Server *			findServer(void);
 		bool				readFileToResponseBody(void);
 		bool				resume(int fd);
-		void				bindCore(WebservCore *core);
 		void				timeout(void);
+		static std::map<int, error_page_t>		initDefaultErrorPages(void);
 
 };
 
