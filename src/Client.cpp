@@ -96,9 +96,9 @@ void			Client::_handleGet(void)
                 _setupAutoIndex(_request.getRoute(), filepath);
                 return;
             }
-            // Otherwise throw a 403.
+            // Otherwise throw a 404. (Could have been 403 tho, but tester requires 404)
             if (_file_fd < 0)
-                throw HttpError(HTTP_STATUS_FORBIDDEN);
+                throw HttpError(HTTP_STATUS_NOT_FOUND);
         }
         else
         {
@@ -110,6 +110,92 @@ void			Client::_handleGet(void)
         _setCallback(_file_fd,  &Client::_onReadyToReadFile, POLLIN);
         _response.setStatus(HTTP_STATUS_SUCCESS);
         _response.setHeader("Content-Type", Response::getContentType(_request.getRoute()));
+}
+
+
+void            Client::_handleFormUpload(void)
+{
+    printf("_handleFormUpload\n");
+    uploadedFile_t                      uplaodedFile;
+    std::string                         boundary;
+    size_t                              pos;
+    std::map<std::string, std::string>  headers = _request.getHeaders();
+    std::vector<std::string>            chunks;
+
+     _response.setStatus(HTTP_STATUS_SUCCESS);
+    if (!hasKey<std::string, std::string>(headers, "content-type") || headers["content-type"].find("multipart/form-data") == std::string::npos)
+        return  _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+    pos = headers["content-type"].find("boundary=");
+    if (pos == std::string::npos)
+        return  _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+    boundary = "--" + headers["content-type"].substr(pos + 9);
+    chunks = splitstr(_request.body, boundary);
+    for (std::vector<std::string>::iterator chunk = chunks.begin() + 1; chunk != chunks.end(); chunk++)
+    {
+        std::string contentDisposition;
+        std::string filename;
+        size_t bodyStart = 2;
+        size_t pos;
+        size_t semicol;
+
+        if (*chunk == "--\r\n")
+            break;
+        std::vector<std::string> chunkHeaders = splitstr(*chunk, "\r\n");
+        for (std::vector<std::string>::iterator header = chunkHeaders.begin() + 1; header != chunkHeaders.end(); header++)
+        {
+            bodyStart += header->size() + 2;
+            if (header->empty())
+                break;
+            if ((pos = header->find("Content-Disposition: ")) != std::string::npos)
+            {
+                if (pos != 0)
+                    throw HttpError(HTTP_STATUS_BAD_REQUEST);
+                semicol = header->find_first_of(";");
+                if (semicol == std::string::npos)
+                    throw HttpError(HTTP_STATUS_BAD_REQUEST);
+                contentDisposition = header->substr(21, semicol - 21);
+                pos = header->find("filename=");
+                if (pos == std::string::npos)
+                    break;
+                filename = header->substr(pos + 10, header->size() - (pos + 10) - 1);
+            }
+            
+        }
+        if (contentDisposition.empty() || contentDisposition != "form-data")
+            continue;
+        if (filename.empty())
+            continue;
+        printf("OK %s\n", filename.c_str());
+        printf("towrite %s\n", chunk->substr(bodyStart, chunk->size() - bodyStart - 2).c_str());
+        uplaodedFile.filename = filename;
+        uplaodedFile.content = chunk->substr(bodyStart, chunk->size() - bodyStart - 2);
+        _uploadedFiles.push_back(uplaodedFile);
+    }
+    if (_uploadedFiles.size())
+        _saveNextFile();
+    else
+        _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+}
+
+void            Client::_saveNextFile(void)
+{
+    printf("_saveNextFile\n");
+    std::string filepath;
+
+   if (_location && _location->client_body_temp_path.size())
+        filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()), _uploadedFiles[0].filename);
+    else if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()),  _uploadedFiles[0].filename);
+    else
+        filepath = joinPath(_server->root, _request.getRoute(),  _uploadedFiles[0].filename);
+    DEBUG("post filepath: %s", filepath.c_str());
+
+    if (!parentDirExists(filepath))
+	    throw HttpError(HTTP_STATUS_NOT_FOUND);
+    
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT, 0644);
+    _setCallback(_file_fd,  &Client::_onReadyToWriteUploadedFile, POLLOUT);
+
 }
 
 void			Client::_handlePost(void) {
@@ -127,20 +213,18 @@ void			Client::_handlePost(void) {
     if (!parentDirExists(filepath))
 	    throw HttpError(HTTP_STATUS_NOT_FOUND);
 
-    // can't do a POST request on a directory
+    // Parse form data if POST on a directory
     if (isDirectory(filepath))
     {
-        _response.setStatus(HTTP_STATUS_SUCCESS);
-        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+        return _handleFormUpload();
     }
-	    // throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
 
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     _response.setStatus(HTTP_STATUS_CREATED);
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
+    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLOUT);
 }
 
 void			Client::_handlePut(void)
@@ -166,7 +250,7 @@ void			Client::_handlePut(void)
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
+    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_CREATED);
 }
 
@@ -190,7 +274,7 @@ void			Client::_handleDelete(void)
 
     remove(filepath.c_str());
 
-    _setCallback(_file_fd,  &Client::_onReadToWriteFile, POLLIN);
+    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_SUCCESS);
 }
 
@@ -467,7 +551,21 @@ void            Client::_onReadyToReadCgi(void)
 
 }
 
-void			Client::_onReadToWriteFile(void) {
+void			Client::_onReadyToWriteUploadedFile(void) {
+    printf("_onReadyToWriteUploadedFile\n");
+    write(_file_fd, _uploadedFiles[0].content.c_str(), _uploadedFiles[0].content.size());
+    _clearCallback(_file_fd);
+    _uploadedFiles.erase(_uploadedFiles.begin());
+    if (_uploadedFiles.size())
+        _saveNextFile();
+    else
+    {
+        _response.setStatus(HTTP_STATUS_SUCCESS);
+        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+    }
+}
+
+void			Client::_onReadyToWriteFile(void) {
     write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
     _clearCallback(_file_fd);
     _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);

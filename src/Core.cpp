@@ -41,7 +41,7 @@
                 sock->add_server(&(*server));
                 try
                 {
-                    registerFd(sock->listen(50), POLLIN);
+                    registerFd(sock->listen(500), POLLIN);
                     _sockets.push_back(*sock);
                 }
                 catch(const AddressAlreadyInUseException& e)

@@ -122,6 +122,12 @@ std::string joinPath(const std::string &left, const std::string &right)
     return newLeft + "/" + newRight;
 }
 
+std::string joinPath(const std::string &left, const std::string &middle, const std::string &right)
+{
+    std::string l = joinPath(left, middle);
+    return joinPath(l, right);
+}
+
 void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *> &cstrings)
 {
 

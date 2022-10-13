@@ -23,6 +23,7 @@ bool isValidHttpMethod(std::string method);
 bool isValidHttpVersion(std::string version);
 std::string toString(const unsigned long& value);
 std::string joinPath(const std::string &left, const std::string &right);
+std::string joinPath(const std::string &left, const std::string &middle, const std::string &right);
 bool pathExist(std::string path);
 void strVectorToCstrVector(std::vector<std::string> &origin, std::vector<char *> &cstrings);
 bool parentDirExists(const std::string &path);

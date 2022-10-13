@@ -41,6 +41,11 @@ class Server;
 
 typedef void(Client::*callback_t)(void);
 
+typedef struct uploadedFile_s {
+	std::string filename;
+	std::string content;
+}				uploadedFile_t;
+
 class Client
 {
 	private:
@@ -64,13 +69,16 @@ class Client
 		int				_cgi_pid;
 		int				_cgi_stdin_fd;
 		bool			_isClosed;
+		std::vector<uploadedFile_t> _uploadedFiles;
 		void			_onReadyToReadRequest();
 		void			_onReadyToReadFile();
 		void			_onReadyToSend();
 		void			_onReadyToReadDir();
 		void			_onReadyToReadCgi();
 		void			_onReadyToWriteCgi();
-		void			_onReadToWriteFile(void);
+		void			_onReadyToWriteFile(void);
+		void			_onReadyToWriteUploadedFile(void);
+		void			_saveNextFile(void);
 		void			_onHttpError(const HttpError& e);
 		int				_findIndex(std::string dir, std::vector<std::string> const &candidates);
 		void			_handleGet(void);
@@ -79,6 +87,7 @@ class Client
 		void			_handlePut(void);
 		void			_handleDelete(void);
 		void			_handleCgi(void);
+		void			_handleFormUpload(void);
 		void			_setupAutoIndex(std::string uri, std::string path);
 		void			_setCallback(int fd, callback_t cb);
 		void			_setCallback(int fd, callback_t cb, u_int32_t events);
