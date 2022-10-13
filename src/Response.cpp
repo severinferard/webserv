@@ -15,6 +15,7 @@ std::map<int, std::string>  Response::initHttpStatus(void)
 {
     std::map<int, std::string> ret;
 
+    ret[100] = "Continue";
     ret[200] = "OK";
     ret[201] = "Created";
     ret[400] = "Bad Request";
@@ -76,7 +77,8 @@ void Response::send(int fd)
         setHeader("Content-Type", "text/html");
     if (_body.size())
         setHeader("Content-Length", toString(_body.size()));
-    setHeader("Connection", "close");
+    if (!hasKey<std::string, std::string>(_headers, "Connection"))
+        setHeader("Connection", "close");
 
     _payload += "HTTP/1.1 " + toString(_status) + " " + HTTP_STATUS[_status] + "\r\n";
 
@@ -102,4 +104,9 @@ void Response::appendToRawPayload(std::string str)
 void Response::clearBody(void)
 {
     _body = "";
+}
+
+bool Response::keepAlive(void)
+{
+    return hasKey<std::string, std::string>(_headers, "Connection") && _headers["Connection"] == "keep-alive";
 }

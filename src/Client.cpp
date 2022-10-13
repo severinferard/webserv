@@ -7,6 +7,7 @@ std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES = Client::initDefaultErr
 Client::Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd):
     _core(core),
     _status(STATUS_WAIT_FOR_REQUEST),
+    _request(socket, fd),
     _server(NULL),
     _location(NULL),
     __log_fd(fd),
@@ -23,7 +24,7 @@ Client::Client(WebservCore *core, std::string addr, int port, const Socket *sock
     // Add a callback on the client socket fd to read the request
     _setCallback(fd, &Client::_onReadyToReadRequest, POLLIN);
     // Create the Request object to handle the request
-    _request = Request(socket, connection_fd);
+    
     DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
@@ -369,17 +370,29 @@ void			Client::_onReadyToSend(void)
     uint64_t delay =  ((now.tv_sec - _t0.tv_sec) * 1000000 + now.tv_usec - _t0.tv_usec) / 1000;
 
     if (_response.getStatus() >= 200 && _response.getStatus() < 300)
-        INFO("%s:%d - %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
+        INFO("%s:%d - %s %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
+    else if (_response.getStatus() == 100)
+        INFO("%s:%d - %s %s %s " COLOR_BLUE" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
     else
-        INFO("%s:%d - %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _response.getStatus(), delay);
+        INFO("%s:%d - %s %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
     _response.send(connection_fd);
-    DEBUG("Closing ");
-    close(connection_fd);
-    _clearCallback(connection_fd);
-    _isClosed = true;
+    if (_response.keepAlive())
+    {
+        _clearCallback(connection_fd);
+        _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
+        _response = Response();
+        DEBUG("Keeping connection opened");
+    }
+    else
+    {
+        _clearCallback(connection_fd);
+        close(connection_fd);
+        _isClosed = true;
+        DEBUG("Closing connection");
+    }    
 }
 
 void            Client::_onReadyToWriteCgi(void)
@@ -508,6 +521,14 @@ bool        Client::resume(int fd)
     catch(const HttpError& e)
     {
         _onHttpError(e);
+    }
+    catch(const Expect100& e)
+    {
+        _response.clearBody();
+        _response.setStatus(HTTP_STATUS_CONTINUE);
+        _response.setHeader("Connection", "keep-alive");
+        _clearCallback(connection_fd);
+        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
     }
     catch (ConnectionResetByPeerException &e)
     {

@@ -61,7 +61,6 @@
     {
 
         int                 ready;
-        Request             request;
         Socket              *sock;
         Client              *client;
         // time_t              now;

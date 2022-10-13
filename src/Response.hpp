@@ -35,6 +35,7 @@ class Response
         void sendRaw(int fd);
         void setIgnoreBody(bool b);
         void clearBody(void);
+        bool keepAlive(void);
 
 };
 

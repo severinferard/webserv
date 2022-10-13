@@ -2,14 +2,6 @@
 
 static const std::string LINE_DELIMITER = "\r\n";
 
-Request::Request():
-_server(NULL),
-_hasLocation(false),
-_headerReceived(false),
-_chunked(false)
-{
-}
-
 Request::Request(const Socket *sock, int connection_fd):
 _fd(sock->get_fd()),
 __log_fd(connection_fd),
@@ -79,6 +71,11 @@ std::string                         Request::getRoute(void) const
 std::string                         Request::getQueryString(void) const
 {
     return _queryString;
+}
+
+std::string                         Request::getUserAgent(void) const
+{
+    return _userAgent;
 }
 
 void        Request::_setHeaders(std::map<std::string, std::string> headers)
@@ -158,6 +155,8 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
     _location = _server->findLocation(_route, &_hasLocation);
     DEBUG("location: %s", (_hasLocation ? _location.path.c_str() : "No location"));
 
+    _userAgent = hasKey<std::string, std::string>(headers, "user-agent") ? headers["user-agent"] : "-";
+
     // Check if the methods are restricted for this route
     allowedMethods = _hasLocation && !_location.allowed_methods.empty()
             ? _location.allowed_methods
@@ -200,9 +199,12 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         if (_hasLocation && _contentLength > _location.client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-        if (_contentLength > _server->client_max_body_size)
+        if (!_hasLocation && _contentLength > _server->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
     }
+
+    if (hasKey<std::string, std::string>(headers, "expect") && headers["expect"] == "100-continue")
+        throw Expect100();
 }
 
 int        Request::parse(void)
@@ -258,7 +260,7 @@ int        Request::parse(void)
         {   
             _headerReceived = true;
             _setHeaders(headers);
-            //print_headers(headers);
+            // print_headers(headers);
             validate(lines, headerLineCount);
         }
         else

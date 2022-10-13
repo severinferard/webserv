@@ -3,6 +3,7 @@
 
 #define DEFAULT_ERROR_PAGES_ROOT "./src/www/errors/"
 
+#define HTTP_STATUS_CONTINUE				100
 #define HTTP_STATUS_SUCCESS					200
 #define HTTP_STATUS_CREATED					201
 #define HTTP_STATUS_BAD_REQUEST				400
@@ -41,6 +42,12 @@ class HttpError : public std::runtime_error {
 		int status;
 		HttpError(int status): std::runtime_error("Http Error"), status(status){};
 		~HttpError() throw() {}
+};
+
+class Expect100 : public std::runtime_error {
+	public:
+		Expect100(): std::runtime_error("Http Error"){}
+		~Expect100() throw() {}
 };
 
 #endif /* HTTPERROR_HPP */

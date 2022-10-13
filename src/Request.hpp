@@ -42,6 +42,7 @@ class Request
         size_t                              _contentLength;    
         bool                                _chunked;
         t_chunk                             _currentChunk;
+        std::string                         _userAgent;
 
         static void                         _addHeader(std::string line, std::map<std::string, std::string> &headers);
         void                                _setHeaders(std::map<std::string, std::string> headers);
@@ -49,7 +50,6 @@ class Request
     public:
         std::string			                body;
         std::map<std::string, std::string>  headers;
-        Request();
         Request(const Socket *sock, int connection_fd);
         ~Request();
 
@@ -64,6 +64,7 @@ class Request
         std::string                         getBody(void) const;
         int                                 getFd(void) const;
         std::string                         getRoute(void) const;
+        std::string                         getUserAgent(void) const;
         std::string                         getQueryString(void) const;
         location_t                          *getLocation(void) ;
         Server                              *getServer(void) const;
