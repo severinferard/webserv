@@ -298,12 +298,10 @@ bool	Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
     _buffer[ret] = 0; 
-    printf("%ld %d\n", std::string(_buffer, ret).size(), ret);
     if (ret > 0)
         _response.appendToBody(std::string(_buffer, ret));
     if (ret < BUFFER_SIZE - 1 ||  ret <= 0)
     {
-        printf("close\n");
         close(_file_fd);
         return true;
     }

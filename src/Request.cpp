@@ -247,20 +247,20 @@ int        Request::parse(void)
         //printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
         while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
+            if (lines[headerLineCount].size() > MAX_HEADER_SIZE)
+                throw HttpError(HTTP_STATUS_REQUEST_HEADER_FIELD_TOO_LARGE);
             _addHeader(lines[headerLineCount], headers);
             headerLineCount++;
         }
         if (headerLineCount == lines.size())
             headerLineCount -= 1;
-        isEmptyLine(lines[headerLineCount]);
-        // printf("headerLineCount %ld real %ld\n", headerLineCount, lines.size());
 
         // Check if we reached the end of the header
         if (isEmptyLine(lines[headerLineCount]))
         {   
             _headerReceived = true;
             _setHeaders(headers);
-            // print_headers(headers);
+            print_headers(headers);
             validate(lines, headerLineCount);
         }
         else
@@ -289,7 +289,6 @@ int        Request::parse(void)
                     std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
                     ss << line;
                     ss >> std::hex >> _currentChunk.size;
-                    printf("max %ld %ld\n", body.size() + _currentChunk.size, _location.client_max_body_size);
                     if (_hasLocation && body.size() + _currentChunk.size > _location.client_max_body_size)
                         throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
                     if (!_hasLocation && body.size() + _currentChunk.size > _server->client_max_body_size)

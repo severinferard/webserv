@@ -13,6 +13,8 @@
 # include "Logger.hpp"
 # include "HttpError.hpp"
 
+# define MAX_HEADER_SIZE 1024
+
 class Server;
 class Socket;
 
