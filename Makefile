@@ -43,9 +43,6 @@ all: $(NAME)
 
 -include $(DEPS)
 
-test:
-	echo $(DEP)
-
 $(NAME): $(OBJS)
 	$(CONTEXT) $(CC) $(OBJS) $(CFLAGS) $(LIBFT) -o $(NAME)
 	
@@ -60,4 +57,7 @@ fclean: clean
 
 re: fclean $(NAME)
 
-.PHONY: all clean fclean re run
+test: $(NAME)
+	pytest -v
+
+.PHONY: all clean fclean re run test

@@ -1,7 +1,7 @@
 #ifndef HTTPERROR_HPP
 #define HTTPERROR_HPP
 
-#define DEFAULT_ERROR_PAGES_ROOT "./src/www/errors/"
+#define DEFAULT_ERROR_PAGES_ROOT "./www/errors/"
 
 #define HTTP_STATUS_CONTINUE						100
 #define HTTP_STATUS_SUCCESS							200

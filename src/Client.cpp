@@ -92,7 +92,7 @@ void			Client::_handleGet(void)
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
                 DEBUG("Serving Autoindex");
-                _response.setHeader("Content-Type", "html");
+                _response.setHeader("Content-Type", "text/html");
                 _setupAutoIndex(_request.getRoute(), filepath);
                 return;
             }

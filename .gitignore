@@ -1,4 +1,7 @@
 .objs
 bak
 .vscode
+.pytest_cache
 webserv
+__pycache__
+www/data/*
