@@ -90,7 +90,7 @@ void        Request::_addHeader(std::string line, std::map<std::string, std::str
     size_t	i;
 
     i = line.find(':');
-    if (i == std::string::npos)
+    if (i == std::string::npos || i == 0)
 	    throw HttpError(HTTP_STATUS_BAD_REQUEST);
 
     name = tolowerstr(line.substr(0, i));
@@ -232,7 +232,7 @@ int        Request::parse(void)
         {
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         }
- 	    if (!isValidHttpMethod(_method))
+ 	    if (!isSupportedHttpMethod(_method))
         {
             throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
         }

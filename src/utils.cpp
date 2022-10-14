@@ -82,7 +82,12 @@ std::string joinstr(std::vector<std::string> strs, std::string delim) {
 
 bool isValidHttpMethod(std::string method)
 {
-    return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT";
+    return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT" || method ==  "DELETE" || method ==  "CONNECT" || method ==  "OPTIONS" || method ==  "TRACE" || method ==  "PATCH";
+}
+
+bool isSupportedHttpMethod(std::string method)
+{
+    return method == "GET" || method == "HEAD" || method ==  "POST" || method ==  "PUT" || method ==  "DELETE";
 }
 
 bool isValidHttpVersion(std::string version)
