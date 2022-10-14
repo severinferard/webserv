@@ -11,7 +11,7 @@ NAME = webserv
 
 CC = g++
 
-CFLAGS = -Wall -Wextra -Werror -std=c++98 -fsanitize=address -Wno-unused-variable -Wno-unused-private-field -Wno-unused-parameter
+CFLAGS = -Wall -Wextra -Werror -std=c++98  -Wno-unused-variable -Wno-unused-private-field -Wno-unused-parameter
 
 RM = rm -f
 

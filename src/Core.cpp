@@ -8,6 +8,10 @@
 
     WebservCore::~WebservCore()
     {
+        for (std::vector<Socket *>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
+        {
+            delete *socket_it;
+        }
     }
 
     /**
@@ -42,7 +46,7 @@
                 try
                 {
                     registerFd(sock->listen(500), POLLIN);
-                    _sockets.push_back(*sock);
+                    _sockets.push_back(sock);
                 }
                 catch(const AddressAlreadyInUseException& e)
                 {                    
@@ -103,11 +107,11 @@
                 std::cout << e.what() << std::endl;
             }
         }
-        for (std::vector<Socket>::iterator it = _sockets.begin(); it < _sockets.end(); it++)
+        for (std::vector<Socket *>::iterator it = _sockets.begin(); it < _sockets.end(); it++)
         {
             int t = 1;
-            close(it->get_fd());
-            setsockopt(it->get_fd(),SOL_SOCKET,SO_REUSEADDR,&t,sizeof(int));
+            close((*it)->get_fd());
+            setsockopt((*it)->get_fd(),SOL_SOCKET,SO_REUSEADDR,&t,sizeof(int));
         }
     }
 
@@ -120,19 +124,19 @@
      */
     Socket *WebservCore::_findSocketOnPort(uint32_t port)
     {
-        for (std::vector<Socket>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
+        for (std::vector<Socket *>::iterator sock = _sockets.begin(); sock != _sockets.end(); sock++)
         {
-            if (sock->get_port() == port)
-                return &(*sock);
+            if ((*sock)->get_port() == port)
+                return *sock;
         }
         return NULL;
     }
 
     bool    WebservCore::_isListeningSocket(int fd)
     {
-        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
+        for (std::vector<Socket *>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
         {
-            if (socket_it->get_fd() == fd)
+            if ((*socket_it)->get_fd() == fd)
                 return true;
         }
         return false;
@@ -189,10 +193,10 @@
 
     Socket *WebservCore:: _getListeningSocket(int fd)
     {
-        for (std::vector<Socket>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
+        for (std::vector<Socket *>::iterator socket_it = _sockets.begin(); socket_it < _sockets.end(); socket_it++)
         {
-            if (socket_it->get_fd() == fd)
-                return &(*socket_it);
+            if ((*socket_it)->get_fd() == fd)
+                return *socket_it;
         }
         return NULL;
     }

@@ -209,6 +209,7 @@ void            Client::_saveNextFile(void)
 void			Client::_handlePost(void) {
     std::string filepath;
 
+    printf("POSTTTTT\n");
     // Generate the file path from the configured folder
     if (_location && _location->client_body_temp_path.size())
         filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()));
@@ -224,6 +225,7 @@ void			Client::_handlePost(void) {
     // Parse form data if POST on a directory
     if (isDirectory(filepath))
     {
+        printf("here\n");
         return _handleFormUpload();
     }
 
@@ -505,7 +507,7 @@ void            Client::_onReadyToWriteCgi(void)
 void            Client::_onReadyToReadCgi(void)
 {
     int status;
-    char    buff[10000000];
+    char    buff[100000];
     std::vector<std::string> lines;
     bool    statusSet = false;
     size_t  bodyStart = 0;

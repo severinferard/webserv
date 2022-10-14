@@ -110,7 +110,7 @@ def test_POST_with_transfer_encoding_chunked_2_check_value(create_1_million_file
     assert response.content.decode() == desired_output
 
 def gen_chunked_3():
-    yield b'lolololololololololol'
+    yield b'lololololl'
     yield b'lalallalalalalalalalal'
 
 def test_POST_with_transfer_encoding_chunked_body_limit_1():

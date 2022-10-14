@@ -30,7 +30,7 @@ class WebservCore {
 
 private:
     std::vector<Server>             _servers;
-    std::vector<Socket>             _sockets;
+    std::vector<Socket *>           _sockets;
     std::map<int, Client *>         _clients;
     std::vector<struct pollfd>      _pollfds;
 
