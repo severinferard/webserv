@@ -18,6 +18,7 @@ std::map<int, std::string>  Response::initHttpStatus(void)
     ret[100] = "Continue";
     ret[200] = "OK";
     ret[201] = "Created";
+    ret[301] = "Moved Permanently";
     ret[400] = "Bad Request";
     ret[403] = "Forbidden";
     ret[404] = "Not Found";

@@ -91,6 +91,14 @@ void			Client::_handleGet(void)
             // If no index can be found, check if directory listing is enabled
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
+                // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
+                if (_request.getRoute().back() != '/')
+                {
+                    _response.setHeader("Location", _request.getRoute() + "/");
+                    _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
+                    _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+                    return;
+                }
                 DEBUG("Serving Autoindex");
                 _response.setHeader("Content-Type", "text/html");
                 _setupAutoIndex(_request.getRoute(), filepath);
@@ -450,15 +458,16 @@ void			Client::_onReadyToSend(void)
 {
     struct timeval now;
     gettimeofday(&now, NULL);
+    int status;
 
     uint64_t delay =  ((now.tv_sec - _t0.tv_sec) * 1000000 + now.tv_usec - _t0.tv_usec) / 1000;
-
-    if (_response.getStatus() >= 200 && _response.getStatus() < 300)
-        INFO("%s:%d - %s %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
-    else if (_response.getStatus() == 100)
-        INFO("%s:%d - %s %s %s " COLOR_BLUE" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
+    status = _response.getStatus();
+    if (status >= 200 && status < 300)
+        INFO("%s:%d - %s %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
+    else if (status == 100 || status == 301)
+        INFO("%s:%d - %s %s %s " COLOR_BLUE" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
     else
-        INFO("%s:%d - %s %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), _response.getStatus(), delay);
+        INFO("%s:%d - %s %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
