@@ -92,7 +92,7 @@ void			Client::_handleGet(void)
             if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
             {
                 // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
-                if (_request.getRoute().back() != '/')
+                if (_request.getRoute()[_request.getRoute().size()-1] != '/')
                 {
                     _response.setHeader("Location", _request.getRoute() + "/");
                     _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
