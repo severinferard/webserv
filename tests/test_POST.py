@@ -39,7 +39,7 @@ def test_POST_without_content_length():
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 411 Length Required"
 
 def test_POST_with_content_length_too_short_check_status():
-    headers = {"User-Agent": "curl/7.77.0"}
+    headers = {}
     req = requests.Request(method='POST', url=BASE_URL + "/scripts/echo.php", headers=headers)
     prepped = req.prepare()
     prepped.headers["Content-Length"] = 10
@@ -51,7 +51,7 @@ def test_POST_with_content_length_too_short_check_status():
     assert response.status_code == 200
 
 def test_POST_with_content_length_too_short_check_value():
-    headers = {"User-Agent": "curl/7.77.0"}
+    headers = {}
     req = requests.Request(method='POST', url=BASE_URL + "/scripts/echo.php", headers=headers)
     prepped = req.prepare()
     prepped.headers["Content-Length"] = 10
@@ -71,14 +71,14 @@ def gen_chunked_1():
     yield b'there'
 
 def test_POST_with_transfer_encoding_chunked_1_check_status():
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
-    response = requests.post(BASE_URL + "/scripts/echo.php", data=gen_chunked_1())
+    headers = {"Transfer-Encoding": "chunked"}
+    response = requests.post(BASE_URL + "/scripts/echo.php", data=gen_chunked_1(), headers=headers)
     pretty_print_request(response.request)
     pretty_print_response(response)
     assert response.status_code == 200
 
 def test_POST_with_transfer_encoding_chunked_1_check_value():
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
+    headers = {"Transfer-Encoding": "chunked"}
     response = requests.post(BASE_URL + "/scripts/echo.php", data=gen_chunked_1(), headers=headers)
     pretty_print_request(response.request)
     pretty_print_response(response)
@@ -91,14 +91,14 @@ def gen_chunked_2():
             yield f.read().encode()
 
 def test_POST_with_transfer_encoding_chunked_2_check_status(create_1_million_file):
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
+    headers = {"Transfer-Encoding": "chunked"}
     response = requests.post(BASE_URL + "/scripts/echo.php", data=gen_chunked_2(), headers=headers)
     pretty_print_request(response.request)
     pretty_print_response(response)
     assert response.status_code == 200
 
 def test_POST_with_transfer_encoding_chunked_2_check_value(create_1_million_file):
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
+    headers = {"Transfer-Encoding": "chunked"}
     response = requests.post(BASE_URL + "/scripts/echo.php", data=gen_chunked_2(), headers=headers)
     pretty_print_request(response.request)
     pretty_print_response(response)
@@ -110,16 +110,56 @@ def gen_chunked_3():
     yield b'lalallalalalalalalalal'
 
 def test_POST_with_transfer_encoding_chunked_body_limit_1():
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
+    headers = {"Transfer-Encoding": "chunked"}
     response = requests.post(BASE_URL + "/post/limit", data=gen_chunked_3(), headers=headers)
     pretty_print_request(response.request)
     pretty_print_response(response)
     assert response.status_code == 413
 
 def test_POST_with_transfer_encoding_chunked_body_limit_2(create_1_million_file):
-    headers = {"User-Agent": "curl/7.77.0", "Transfer-Encoding": "chunked"}
+    headers = {"Transfer-Encoding": "chunked"}
     try:
         response = requests.post(BASE_URL + "/post/limit", data=gen_chunked_2(), headers=headers)
+        pretty_print_request(response.request)
+        pretty_print_response(response)
+        assert response.status_code == 413
+    except requests.exceptions.ConnectionError: # Connection is closed by the server before the file has been fully sent
+        pass
+    except Exception:
+        raise
+
+def test_POST_body_limit_expect_413():
+    try:
+        response = requests.post(BASE_URL + "/post/limit", data=("a" * 1000))
+        pretty_print_request(response.request)
+        pretty_print_response(response)
+        assert response.status_code == 413
+    except requests.exceptions.ConnectionError: # Connection is closed by the server before the file has been fully sent
+        pass
+    except Exception:
+        raise
+
+def test_POST_body_limit_expect_200():
+    response = requests.post(BASE_URL + "/post/limit", data=("a" * 10))
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 200
+
+def test_POST_body_limit_1_million_expect_413(create_1_million_file):
+    try:
+        with open(WWW_DIR / 'onemillion.txt', "r") as f:
+            response = requests.post(BASE_URL + "/post/limit", data=f.read())
+        pretty_print_request(response.request)
+        pretty_print_response(response)
+        assert response.status_code == 413
+    except requests.exceptions.ConnectionError: # Connection is closed by the server before the file has been fully sent
+        pass
+    except Exception:
+        raise
+
+def test_POST_body_limit_one_over_limit_expect_413():
+    try:
+        response = requests.post(BASE_URL + "/post/limit", data=("a" * 11))
         pretty_print_request(response.request)
         pretty_print_response(response)
         assert response.status_code == 413
