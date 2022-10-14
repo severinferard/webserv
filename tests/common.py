@@ -2,6 +2,8 @@ from pathlib import Path
 import requests
 import pytest
 import subprocess
+import random
+import string
 
 HOST = "localhost"
 PORT = 8888
@@ -37,8 +39,11 @@ def create_1_billion_file():
     yield subprocess.run(f"LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 1000000000 > {WWW_DIR / 'onebillion.txt'}", shell=True)
     subprocess.run(f"rm -rf {WWW_DIR / 'onebillion.txt'}", shell=True)
 
-@pytest.fixture()
+@pytest.fixture(scope='session', autouse=True)
 def clean_www_data():
     yield
     # Will be executed after the last test
     subprocess.run(f"rm -rf {DATA_DIR / '*'}", shell=True)
+
+def random_filename():
+    return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))

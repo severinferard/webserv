@@ -173,9 +173,9 @@ def test_POST_body_limit_one_over_limit_expect_413():
         raise
 
 @pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
-def test_POST_check_file_created_txt(size, clean_www_data):
+def test_POST_check_file_created_txt(size):
     parts = int(size / 10)
-    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    filename = random_filename()
     payload = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(parts))
     response = requests.post(BASE_URL + f"/post/{filename}", data=(payload * 10))
     print("Total payload size %d", size)
@@ -189,9 +189,9 @@ def test_POST_check_file_created_txt(size, clean_www_data):
     assert response.content.decode() == payload * 10
 
 @pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
-def test_POST_check_file_created_bin(size, clean_www_data):
+def test_POST_check_file_created_bin(size):
     parts = int(size / 10)
-    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    filename = random_filename()
     payload = os.urandom(parts)
     response = requests.post(BASE_URL + f"/post/{filename}", data=(payload * 10))
     print("Total payload size %d", size)
@@ -205,14 +205,14 @@ def test_POST_check_file_created_bin(size, clean_www_data):
     assert response.content == payload * 10
 
 @pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
-def test_POST_check_file_created_chunked_txt(size, clean_www_data):
+def test_POST_check_file_created_chunked_txt(size):
     n_chunks = 10
     chunk_size = int(size/10)
     chunk = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(chunk_size))
     def gen_chunked():
         for _ in range(n_chunks):
             yield chunk.encode()
-    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    filename = random_filename()
     response = requests.post(BASE_URL + f"/post/{filename}", data=gen_chunked())
     print("Total payload size %d", size)
     print("Chunk size %d %d", chunk_size, len(chunk))
@@ -227,14 +227,14 @@ def test_POST_check_file_created_chunked_txt(size, clean_www_data):
     assert response.content.decode() == chunk * 10
 
 @pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
-def test_POST_check_file_created_chunked_bin(size, clean_www_data):
+def test_POST_check_file_created_chunked_bin(size):
     n_chunks = 10
     chunk_size = int(size/10)
     chunk = os.urandom(chunk_size)
     def gen_chunked():
         for _ in range(n_chunks):
             yield chunk
-    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    filename = random_filename()
     response = requests.post(BASE_URL + f"/post/{filename}", data=gen_chunked())
     print("Total payload size %d", size)
     print("Chunk size %d %d", chunk_size, len(chunk))
@@ -247,3 +247,90 @@ def test_POST_check_file_created_chunked_bin(size, clean_www_data):
     assert response.status_code == 200
     assert len(response.content) == size
     assert response.content == chunk * 10
+
+def test_POST_check_append_txt():
+    payload_size = 1000
+    payload = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(payload_size))
+    filename = random_filename()
+    for _ in range(10):
+        response = requests.post(BASE_URL + f"/post/{filename}", data=payload)
+        assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert response.content.decode() == payload * 10
+
+def test_POST_check_append_bin():
+    payload_size = 1000
+    payload = os.urandom(payload_size)
+    filename = random_filename()
+    for _ in range(10):
+        response = requests.post(BASE_URL + f"/post/{filename}", data=payload)
+        assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert response.content == payload * 10
+
+def test_POST_form_data_single_file_txt(tmpdir):
+    sub = tmpdir.mkdir("sub")
+    file = sub.join("file.txt")
+    content = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10000))
+    file.write(content)
+    response = requests.post(BASE_URL + "/post/", files={"file": open(str(file), "r")})
+    assert response.status_code == 200
+    response = requests.get(BASE_URL + f"/data/{file.basename}")
+    assert response.status_code == 200
+    assert response.content.decode() == content
+
+def test_POST_form_data_single_file_bin(tmpdir):
+    sub = tmpdir.mkdir("sub")
+    file = sub.join("file.txt")
+    content = os.urandom(10000)
+    file.write_binary(content)
+    response = requests.post(BASE_URL + "/post/", files={"file": open(str(file), "rb")})
+    assert response.status_code == 200
+    response = requests.get(BASE_URL + f"/data/{file.basename}")
+    assert response.status_code == 200
+    assert response.content == content
+    
+def test_POST_form_data_multiple_files_txt(tmpdir):
+    sub = tmpdir.mkdir("sub")
+    file1 = sub.join("file1.txt")
+    file2 = sub.join("file2.txt")
+    file3 = sub.join("file3.txt")
+    content = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(10000))
+    file1.write(content)
+    file2.write(content)
+    file3.write(content)
+    response = requests.post(BASE_URL + "/post/", files={"file1": open(str(file1), "r"), "file2": open(str(file2), "r"), "file3": open(str(file3), "r")})
+    assert response.status_code == 200
+    response = requests.get(BASE_URL + f"/data/{file1.basename}")
+    assert response.status_code == 200
+    assert response.content.decode() == content
+    response = requests.get(BASE_URL + f"/data/{file2.basename}")
+    assert response.status_code == 200
+    assert response.content.decode() == content
+    response = requests.get(BASE_URL + f"/data/{file3.basename}")
+    assert response.status_code == 200
+    assert response.content.decode() == content
+
+def test_POST_form_data_multiple_files_bin(tmpdir):
+    sub = tmpdir.mkdir("sub")
+    file1 = sub.join("file1.txt")
+    file2 = sub.join("file2.txt")
+    file3 = sub.join("file3.txt")
+    content = os.urandom(10000)
+    file1.write_binary(content)
+    file2.write_binary(content)
+    file3.write_binary(content)
+    response = requests.post(BASE_URL + "/post/", files={"file1": open(str(file1), "rb"), "file2": open(str(file2), "rb"), "file3": open(str(file3), "rb")})
+    assert response.status_code == 200
+    response = requests.get(BASE_URL + f"/data/{file1.basename}")
+    assert response.status_code == 200
+    assert response.content == content
+    response = requests.get(BASE_URL + f"/data/{file2.basename}")
+    assert response.status_code == 200
+    assert response.content == content
+    response = requests.get(BASE_URL + f"/data/{file3.basename}")
+    assert response.status_code == 200
+    assert response.content == content
+
