@@ -44,9 +44,7 @@ void Response::appendToBody(std::string str)
 
 void Response::appendToBody(std::string str, size_t size)
 {
-    printf("test %ld %ld\n", str.size(), size);
     _body.append(str, size);
-    printf("2\n");
 }
 
 void Response::setStatus(int status)
