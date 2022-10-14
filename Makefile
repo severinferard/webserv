@@ -19,6 +19,12 @@ RMDIR = rm -rf
 
 ARGS = $(filter-out $@,$(MAKECMDGOALS))
 
+YOUPIBANANE_ROOT = www/test/
+YOUPIBANANE_F =  YoupiBanane/youpi.bad_extension YoupiBanane/youpi.bla  YoupiBanane/nop/youpi.bad_extension YoupiBanane/nop/other.pouic  YoupiBanane/Yeah/not_happy.bad_extension
+YOUPIBANANE_D = YoupiBanane YoupiBanane/nop YoupiBanane/Yeah
+YOUPIBANANE_FILES = $(addprefix  $(YOUPIBANANE_ROOT),$(YOUPIBANANE_F))
+YOUPIBANANE_DIRS = $(addprefix  $(YOUPIBANANE_ROOT),$(YOUPIBANANE_D))
+
 _END=\x1b[0m
 _BOLD=\x1b[1m
 _UNDER=\x1b[4m
@@ -59,5 +65,12 @@ re: fclean $(NAME)
 
 test: $(NAME)
 	pytest -v
+
+create_youpibanane:
+	mkdir -p $(YOUPIBANANE_DIRS)
+	touch $(YOUPIBANANE_FILES)
+clear_youibanane:
+	rm -rf $(YOUPIBANANE_DIRS)
+
 
 .PHONY: all clean fclean re run test

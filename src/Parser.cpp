@@ -225,7 +225,7 @@ location_t					Parser::parse_location(std::ifstream & file)
 	std::string	token;
 	location_t	ret;
 	ret.autoindex = -1;
-	ret.client_max_body_size = DEFAULT_CLIENT_MAX_BODY_SIZE;
+	ret.client_max_body_size = -1;
 
 	ret.modifier = PATH_NO_MODIFIDER;
 	
@@ -277,7 +277,7 @@ server_config_t 			Parser::parse_server(std::ifstream & file)
 	server_config_t ret;
 	std::string directive_name;
 
-	ret.client_max_body_size = DEFAULT_CLIENT_MAX_BODY_SIZE;
+	ret.client_max_body_size = -1;
 
 	assert_next_token(file, "{");
 	token = get_next_token(file);

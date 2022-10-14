@@ -32,7 +32,7 @@ public:
     const std::vector<location_t>       locations;
     const std::map<int, error_page_t>   error_pages;
     const std::vector<std::string>      allowed_methods;
-    const size_t                        client_max_body_size;
+    const int                           client_max_body_size;
     const int                           autoindex;
 
     location_t          findLocation(std::string uri, bool *found);

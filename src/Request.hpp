@@ -70,6 +70,7 @@ class Request
         std::string                         getQueryString(void) const;
         location_t                          *getLocation(void) ;
         Server                              *getServer(void) const;
+        size_t                              getContentLength(void) const;
 };
 
 std::ostream& operator<<(std::ostream& os, Request const& r);

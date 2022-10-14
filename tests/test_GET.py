@@ -1,36 +1,10 @@
-import re
-import sre_compile
 import requests
 import socket
 import pytest
 from pathlib import Path
-import random
-import string
-import os
 import subprocess
 
-HOST = "localhost"
-PORT = 8888
-BASE_URL = f"http://{HOST}:{PORT}"
-
-WWW_DIR = Path(__file__).resolve().parent.parent / 'www/test/pytest'
-
-def pretty_print_request(req):
-    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
-        '-----------Request-----------',
-        req.method + ' ' + req.url,
-        '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
-        req.body,
-    ))
-
-def pretty_print_response(res: requests.Response):
-    print('{}\n{}\r\n{}\r\n\r\n{}'.format(
-        '-----------Response-----------',
-        res.url + ' ' +  str(res.status_code),
-        '\r\n'.join('{}: {}'.format(k, v) for k, v in res.headers.items()),
-        str(res.content),
-    ))
-
+from common import *
 
 def test_GET_with_autoindex_check_status():
     response = requests.get(BASE_URL + "/with-autoindex")
@@ -94,10 +68,7 @@ def test_GET_with_file_that_exist_long():
     pretty_print_response(response)
     assert len(response.content) == 96187
 
-@pytest.fixture
-def create_1_million_file():
-    yield subprocess.run(f"LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 1000000 > {WWW_DIR / 'onemillion.txt'}", shell=True)
-    subprocess.run(f"rm -rf {WWW_DIR / 'onemillion.txt'}", shell=True)
+
 
 def test_GET_with_file_that_exist_1_million_bytes(create_1_million_file):
     response = requests.get(BASE_URL + "/onemillion.txt")

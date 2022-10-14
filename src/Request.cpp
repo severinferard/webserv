@@ -1,5 +1,7 @@
 # include "Request.hpp"
 
+//@TODO redirect 301 autoindex without /
+
 static const std::string LINE_DELIMITER = "\r\n";
 
 Request::Request(const Socket *sock, int connection_fd):
@@ -76,6 +78,11 @@ std::string                         Request::getQueryString(void) const
 std::string                         Request::getUserAgent(void) const
 {
     return _userAgent;
+}
+
+size_t                              Request::getContentLength(void) const
+{
+    return _contentLength;
 }
 
 void        Request::_setHeaders(std::map<std::string, std::string> headers)
@@ -178,11 +185,14 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         if (hasKey<std::string, std::string>(headers, "transfer-encoding"))
         {
             transferEncoding = headers.at("transfer-encoding");
-            if (transferEncoding != "chunked")
+            if (transferEncoding != "chunked" && transferEncoding != "identity")
                 throw HttpError(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE);
-            _chunked = true;
-            _currentChunk.start = _bodyStart;
-            _currentChunk.hasSize = false;
+            if (transferEncoding == "chunked")
+            {
+                _chunked = true;
+                _currentChunk.start = _bodyStart;
+                _currentChunk.hasSize = false;
+            }
         }
 
         // Return 411 if the Content-Length header is not set
@@ -195,11 +205,11 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         // Read the Content-Length and check if it's valid
         char *end;
         _contentLength = strtoul(headers["content-length"].c_str(), &end, 10);
-        if (end == headers["content-length"].c_str() || _contentLength <= 0)
+        if (end == headers["content-length"].c_str() || _contentLength < 0)
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
-        if (_hasLocation && _contentLength > _location.client_max_body_size)
+        if (_hasLocation && _location.client_max_body_size >= 0 && _contentLength > (size_t)_location.client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-        if (!_hasLocation && _contentLength > _server->client_max_body_size)
+        if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >=0 && _contentLength > (size_t)_server->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
     }
 
@@ -289,15 +299,18 @@ int        Request::parse(void)
                     std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
                     ss << line;
                     ss >> std::hex >> _currentChunk.size;
-                    if (_hasLocation && body.size() + _currentChunk.size > _location.client_max_body_size)
+                    if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
                         throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-                    if (!_hasLocation && body.size() + _currentChunk.size > _server->client_max_body_size)
+                    if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_server->client_max_body_size)
                         throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
                     _currentChunk.hasSize = true;
                     _currentChunk.start += line.size() + 2;
                     // Stop reading if the chunk is empty
                     if (_currentChunk.size == 0)
+                    {
+                        _contentLength = body.size(); // used for CGI
                         return true;
+                    }
                 }
                 // Keep reading if we still haven't finished reading the chunk
                 if (_payload.size() - _currentChunk.start < _currentChunk.size)

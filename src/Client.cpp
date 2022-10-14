@@ -290,7 +290,7 @@ void			Client::_handleCgi(void)
     std::vector<std::string>    env;
     std::vector<char *>         cEnv;
     std::string                 filepath;
-
+    std::stringstream           ss;
     DEBUG("Sending request to CGI");
     if (_location && !_location->root.empty())
         filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
@@ -319,6 +319,8 @@ void			Client::_handleCgi(void)
     env.push_back("QUERY_STRING=" + _request.getQueryString());
     env.push_back("SCRIPT_FILENAME=" + filepath);
     env.push_back("REDIRECT_STATUS=CGI");
+    ss << "CONTENT_LENGTH=" << _request.getContentLength();
+    env.push_back(ss.str());
     for (std::map<std::string, std::string>::iterator it = _request.headers.begin(); it != _request.headers.end(); it++)
     {
         std::string var = "HTTP_" + it->first;

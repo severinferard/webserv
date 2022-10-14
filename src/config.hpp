@@ -41,7 +41,7 @@ typedef struct              location_s {
     std::vector<std::string> allowed_methods;
     int                        autoindex;
     std::string                 client_body_temp_path;
-    size_t                         client_max_body_size;
+    int                         client_max_body_size;
     std::string                 cgi_pass;
 }                           location_t;
 
@@ -52,7 +52,7 @@ typedef struct              server_config_s {
     std::vector<std::string>    index;
     std::vector<location_t>     locations;
     std::map<int, error_page_t>   error_pages;
-    size_t                         client_max_body_size;
+    int                         client_max_body_size;
     std::vector<std::string> allowed_methods;
     int                         autoindex;
 }                           server_config_t;
