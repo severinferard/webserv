@@ -118,9 +118,6 @@ def test_GET_line_by_line_bad_method_expect_400_1():
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((HOST, PORT))
     conn.send(b"42 / HTTP/1.1\r\n")
-    conn.send(f"Host: {HOST}:{PORT}\r\n".encode())
-    conn.send(f"User-Agent: curl/7.77.0\r\n".encode())
-    conn.send(b"\r\n")
     res = conn.recv(1000)
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 400 Bad Request"
@@ -129,9 +126,6 @@ def test_GET_line_by_line_bad_method_expect_400_2():
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((HOST, PORT))
     conn.send(b"GET/ HTTP/1.1\r\n")
-    conn.send(f"Host: {HOST}:{PORT}\r\n".encode())
-    conn.send(f"User-Agent: curl/7.77.0\r\n".encode())
-    conn.send(b"\r\n")
     res = conn.recv(1000)
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 400 Bad Request"
@@ -140,9 +134,6 @@ def test_GET_line_by_line_unsupported_method_expect_501():
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((HOST, PORT))
     conn.send(b"OPTIONS / HTTP/1.1\r\n")
-    conn.send(f"Host: {HOST}:{PORT}\r\n".encode())
-    conn.send(f"User-Agent: curl/7.77.0\r\n".encode())
-    conn.send(b"\r\n")
     res = conn.recv(1000)
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 501 Not Implemented"
@@ -151,9 +142,6 @@ def test_GET_line_by_line_unsupported_http_version_expect_505_1():
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((HOST, PORT))
     conn.send(b"GET / HTTP/2.0\r\n")
-    conn.send(f"Host: {HOST}:{PORT}\r\n".encode())
-    conn.send(f"User-Agent: curl/7.77.0\r\n".encode())
-    conn.send(b"\r\n")
     res = conn.recv(1000)
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 505 HTTP Version Not Supported"
@@ -162,9 +150,6 @@ def test_GET_line_by_line_unsupported_http_version_expect_505_2():
     conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     conn.connect((HOST, PORT))
     conn.send(b"GET / HPPT\r\n")
-    conn.send(f"Host: {HOST}:{PORT}\r\n".encode())
-    conn.send(f"User-Agent: curl/7.77.0\r\n".encode())
-    conn.send(b"\r\n")
     res = conn.recv(1000)
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 505 HTTP Version Not Supported"
