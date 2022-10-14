@@ -22,9 +22,16 @@ def test_GET_with_autoindex_check_body():
     response = requests.get(BASE_URL + "/with-autoindex")
     pretty_print_request(response.request)
     pretty_print_response(response)
-    assert "<h1>Index of /with-autoindex</h1>" in str(response.content)
+    assert "<h1>Index of /with-autoindex/</h1>" in str(response.content)
     assert '<a href="bar">bar</a>' in str(response.content)
     assert '<a href="FOOlder/">FOOlder/</a>' in str(response.content)
+
+def test_GET_with_autoindex_width_redirect_301():
+    response = requests.get(BASE_URL + "/with-autoindex", allow_redirects=False)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 301
+    assert response.headers["Location"] == "/with-autoindex/"
 
 def test_GET_with_autoindex_disabled_expect_404():
     response = requests.get(BASE_URL + "/no-autoindex")
@@ -76,12 +83,8 @@ def test_GET_with_file_that_exist_1_million_bytes(create_1_million_file):
     pretty_print_response(response)
     assert len(response.content) == 1_000_000
     
-@pytest.fixture
-def create_1_billion_file():
-    yield subprocess.run(f"LC_ALL=C tr -dc A-Za-z0-9 </dev/urandom | head -c 1000000000 > {WWW_DIR / 'onebillion.txt'}", shell=True)
-    subprocess.run(f"rm -rf {WWW_DIR / 'onebillion.txt'}", shell=True)
 
-@pytest.mark.skip(reason="Too long... Must be tested during correction")
+@pytest.mark.skipif(SKIP_LONGER_TESTS, reason="Too long... Must be tested during correction")
 def test_GET_with_file_that_exist_1_billion_bytes(create_1_billion_file):
     response = requests.get(BASE_URL + "/onebillion.txt")
     pretty_print_request(response.request)

@@ -2,8 +2,12 @@ from urllib.request import Request
 import requests
 import socket
 import pytest
+import os
 from pathlib import Path
 import subprocess
+import random
+import string
+from functools import partial
 
 from common import *
 
@@ -167,4 +171,79 @@ def test_POST_body_limit_one_over_limit_expect_413():
         pass
     except Exception:
         raise
-    
+
+@pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
+def test_POST_check_file_created_txt(size, clean_www_data):
+    parts = int(size / 10)
+    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    payload = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(parts))
+    response = requests.post(BASE_URL + f"/post/{filename}", data=(payload * 10))
+    print("Total payload size %d", size)
+    print("Filename %s", filename)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert len(response.content.decode()) == size
+    assert response.content.decode() == payload * 10
+
+@pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
+def test_POST_check_file_created_bin(size, clean_www_data):
+    parts = int(size / 10)
+    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    payload = os.urandom(parts)
+    response = requests.post(BASE_URL + f"/post/{filename}", data=(payload * 10))
+    print("Total payload size %d", size)
+    print("Filename %s", filename)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert len(response.content) == size
+    assert response.content == payload * 10
+
+@pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
+def test_POST_check_file_created_chunked_txt(size, clean_www_data):
+    n_chunks = 10
+    chunk_size = int(size/10)
+    chunk = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(chunk_size))
+    def gen_chunked():
+        for _ in range(n_chunks):
+            yield chunk.encode()
+    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    response = requests.post(BASE_URL + f"/post/{filename}", data=gen_chunked())
+    print("Total payload size %d", size)
+    print("Chunk size %d %d", chunk_size, len(chunk))
+    print("Number of chunks %d", n_chunks)
+    print("Filename %s", filename)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert len(response.content.decode()) == size
+    assert response.content.decode() == chunk * 10
+
+@pytest.mark.parametrize("size", [10, 100, 1000, 10_000, 100_000, 1_000_000, 10_000_000, 100_000_000])
+def test_POST_check_file_created_chunked_bin(size, clean_www_data):
+    n_chunks = 10
+    chunk_size = int(size/10)
+    chunk = os.urandom(chunk_size)
+    def gen_chunked():
+        for _ in range(n_chunks):
+            yield chunk
+    filename = ''.join(random.choice(string.ascii_uppercase + string.digits) for _ in range(6))
+    response = requests.post(BASE_URL + f"/post/{filename}", data=gen_chunked())
+    print("Total payload size %d", size)
+    print("Chunk size %d %d", chunk_size, len(chunk))
+    print("Number of chunks %d", n_chunks)
+    print("Filename %s", filename)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 201
+    response = requests.get(BASE_URL + f"/data/{filename}")
+    assert response.status_code == 200
+    assert len(response.content) == size
+    assert response.content == chunk * 10
