@@ -66,9 +66,18 @@ def test_POST_with_content_length_too_short_check_value():
     pretty_print_response(response)
     assert response.content.decode() == "Seriously,"
 
-@pytest.mark.skip(reason="Not Implemented")
+@pytest.mark.timeout(REQUEST_MAX_TIMEOUT)
 def test_POST_with_content_length_too_long():
-    pass
+    headers = {}
+    req = requests.Request(method='POST', url=BASE_URL + "/scripts/echo.php", headers=headers)
+    prepped = req.prepare()
+    prepped.headers["Content-Length"] = 1000
+    prepped.body = b'Seriously, send exactly these bytes.'
+    print(prepped.headers)
+    response = s.send(prepped)
+    pretty_print_request(response.request)
+    pretty_print_response(response)
+    assert response.status_code == 408
 
 def gen_chunked_1():
     yield b'hi'

@@ -176,9 +176,13 @@ def test_GET_line_by_line_invalid_header_format_expect_400_2():
     print(res.decode())
     assert res.decode().split("\r\n")[0] == "HTTP/1.1 400 Bad Request"
 
-@pytest.mark.skip(reason="Not Implemented")
+@pytest.mark.timeout(REQUEST_MAX_TIMEOUT)
 def test_GET_line_by_line_timeout():
-    pass
+    conn = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    conn.connect((HOST, PORT))
+    res = conn.recv(1000)
+    print(res.decode())
+    assert res.decode().split("\r\n")[0] == "HTTP/1.1 408 Request Timeout"
 
     
 

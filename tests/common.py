@@ -12,6 +12,7 @@ BASE_URL = f"http://{HOST}:{PORT}"
 WWW_DIR = Path(__file__).resolve().parent.parent / 'www/test/pytest'
 DATA_DIR = Path(__file__).resolve().parent.parent / 'www/data'
 SKIP_LONGER_TESTS = True
+REQUEST_MAX_TIMEOUT = 12
 
 def pretty_print_request(req):
     print('{}\n{}\r\n{}\r\n\r\n{}'.format(
@@ -44,6 +45,7 @@ def clean_www_data():
     yield
     # Will be executed after the last test
     subprocess.run(f"rm -rf {DATA_DIR / '*'}", shell=True)
+    subprocess.run(f"touch {DATA_DIR / '.hidden'}", shell=True)
 
 def random_filename():
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))
