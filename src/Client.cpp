@@ -94,6 +94,7 @@ void			Client::_handleGet(void)
                 // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
                 if (_request.getRoute()[_request.getRoute().size()-1] != '/')
                 {
+                    printf("REDIERCT\n");
                     _response.setHeader("Location", _request.getRoute() + "/");
                     _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
                     _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
@@ -302,6 +303,8 @@ void			Client::_handleCgi(void)
     std::string                 filepath;
     std::stringstream           ss;
     DEBUG("Sending request to CGI");
+    if (!pathExist(_location->cgi_pass))
+        throw std::runtime_error("CGI path doesnt exist");
     if (_location && !_location->root.empty())
         filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
@@ -361,7 +364,7 @@ void			Client::_handleCgi(void)
         dup2(stdinLink[0], STDIN_FILENO);
         close(stdinLink[0]);
         execve(cArgs[0], &cArgs[0], &cEnv[0]);
-        throw std::runtime_error("Execve failed");
+        // throw std::runtime_error("Execve failed");
     }
     else
     {
@@ -423,6 +426,7 @@ void			Client::_onReadyToReadRequest(void)
             if (!_request.parse())
                 return;
         }
+        _clearCallback(connection_fd);
         _status = STATUS_PROCESSING;
         // If we have read the whole request...
         // store the server and location of the request locally for convinience
@@ -588,7 +592,7 @@ void			Client::_onHttpError(const HttpError& e)
 {
     error_page_t errorPage;
     _response.clearBody();
-    ERROR("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
+    WARNING("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
     if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
         errorPage = _request.getLocation()->error_pages.at(e.status);
     else if (_request.getServer() && hasKey<int, error_page_t>(_request.getServer()->error_pages, e.status))
@@ -645,6 +649,14 @@ bool        Client::resume(int fd)
         DEBUG("Closing");
         close(connection_fd);
         _clearCallback(connection_fd);
+    }
+    catch (std::exception &e)
+    {
+        ERROR("%s", e.what());
+        _clearCallback(connection_fd);
+        _clearCallback(_file_fd);
+        _clearCallback(_cgi_stdin_fd);
+        _onHttpError(HttpError(HTTP_STATUS_INTERNAL_SERVER_ERROR));
     }
     return _isClosed;
     

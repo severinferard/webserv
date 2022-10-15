@@ -55,9 +55,9 @@ void            Client::_setupAutoIndex(std::string uri, std::string path)
     ss << "<h1>Index of " + uri + "</h1><hr>" << "\n";
     ss << "<pre>" << "\n";
     _response.appendToBody(ss.str());
-    _core->registerFd(dirfd(_dp), POLLIN, this);
+    // _core->registerFd(dirfd(_dp), POLLIN, this);
     // _status = STATUS_WAIT_TO_READ_DIR;
-    _setCallback(dirfd(_dp), &Client::_onReadyToReadDir);
+    _setCallback(dirfd(_dp), &Client::_onReadyToReadDir, POLLIN);
 
 }
 
@@ -65,7 +65,6 @@ void			Client::_onReadyToReadDir()
 {
     struct dirent               *ep;
     std::stringstream           ss;
-    
     // Store each node in a vector because we need to sort them.
     if ((ep = readdir(_dp)) != NULL)
     {
@@ -89,7 +88,5 @@ void			Client::_onReadyToReadDir()
     // Close the html tags
     _response.appendToBody("</pre><hr></body></html>");
     _response.setStatus(HTTP_STATUS_SUCCESS);
-    // _status = STATUS_WAIT_TO_SEND;
-    _core->modifyFd(connection_fd, POLLOUT);
-    _setCallback(connection_fd, &Client::_onReadyToSend);
+    _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
 }
