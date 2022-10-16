@@ -363,9 +363,9 @@ std::vector<server_config_t> Parser::parse(std::string const & path)
 			servers.push_back(parse_server(file));
 		}
 	}
-	//for (std::vector<server_config_t>::const_iterator i = servers.begin(); i != servers.end(); ++i) {
-		//print_server(*i);
-	//}
+	for (std::vector<server_config_t>::const_iterator i = servers.begin(); i != servers.end(); ++i) {
+		print_server(*i);
+	}
 	for (std::vector<server_config_t>::const_iterator i = servers.begin(); i != servers.end(); ++i) {
 	    check_server(*i);
 	}
