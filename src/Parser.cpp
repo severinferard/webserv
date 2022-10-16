@@ -1,4 +1,5 @@
 #include "Parser.hpp"
+#include "utils.hpp"
 
 Parser::Parser()
 {
@@ -312,6 +313,37 @@ server_config_t 			Parser::parse_server(std::ifstream & file)
 	return ret;
 }
 
+static void check_error_pages(const std::map<int, error_page_t> &error_pages) {
+    std::map<int, error_page_t>::const_iterator	it;
+
+    for (it = error_pages.begin(); it != error_pages.end(); ++it) {
+	if (!pathExist(it->second.path))
+	    throw FileNotFoundException(it->second.path);
+    }
+}
+
+static void check_location(const location_t &loc) {
+    if (!loc.root.empty() && !pathExist(loc.root))
+	throw FileNotFoundException(loc.root);
+
+    check_error_pages(loc.error_pages);
+
+    if (!loc.cgi_pass.empty() && !pathExist(loc.cgi_pass))
+	throw FileNotFoundException(loc.cgi_pass);
+}
+
+static void check_server(const server_config_t &serv) {
+    std::vector<location_t>::const_iterator it;
+
+    if (!pathExist(serv.root))
+	throw FileNotFoundException(serv.root);
+
+    check_error_pages(serv.error_pages);
+
+    for (it = serv.locations.begin(); it != serv.locations.end(); ++it)
+	check_location(*it);
+}
+
 std::vector<server_config_t> Parser::parse(std::string const & path)
 {
 	std::vector<server_config_t> servers;
@@ -331,8 +363,11 @@ std::vector<server_config_t> Parser::parse(std::string const & path)
 			servers.push_back(parse_server(file));
 		}
 	}
+	//for (std::vector<server_config_t>::const_iterator i = servers.begin(); i != servers.end(); ++i) {
+		//print_server(*i);
+	//}
 	for (std::vector<server_config_t>::const_iterator i = servers.begin(); i != servers.end(); ++i) {
-		print_server(*i);
+	    check_server(*i);
 	}
 	return servers;
 }
