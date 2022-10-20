@@ -1,30 +1,28 @@
 #include "Client.hpp"
 
-char                        Client::_buffer[BUFFER_SIZE];
+char Client::_buffer[BUFFER_SIZE];
 std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES = Client::initDefaultErrorPages();
 
-
-Client::Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd):
-    _core(core),
-    _status(STATUS_WAIT_FOR_REQUEST),
-    _request(socket, fd),
-    _server(NULL),
-    _location(NULL),
-    __log_fd(fd),
-    _timedOut(false),
-    _isClosed(false),
-    addr(addr),
-    port(port),
-    socket(socket),
-    connection_fd(fd),
-    connectionTimestamp(time(NULL))
+Client::Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd) : _core(core),
+                                                                                              _status(STATUS_WAIT_FOR_REQUEST),
+                                                                                              _request(socket, fd),
+                                                                                              _server(NULL),
+                                                                                              _location(NULL),
+                                                                                              __log_fd(fd),
+                                                                                              _timedOut(false),
+                                                                                              _isClosed(false),
+                                                                                              addr(addr),
+                                                                                              port(port),
+                                                                                              socket(socket),
+                                                                                              connection_fd(fd),
+                                                                                              connectionTimestamp(time(NULL))
 {
     // Save te current timestamp to calculate the request time
     gettimeofday(&_t0, NULL);
     // Add a callback on the client socket fd to read the request
     _setCallback(fd, &Client::_onReadyToReadRequest, POLLIN);
     // Create the Request object to handle the request
-    
+
     DEBUG("New client connected on endpoint %s:%u from %s:%d", socket->get_host().c_str(), socket->get_port(), addr.c_str(), port);
 }
 
@@ -33,20 +31,20 @@ Client::~Client()
 }
 
 // Class method called once to initialize the Client::DEFAULT_ERROR_PAGES constant
-std::map<int, error_page_t>						Client::initDefaultErrorPages(void)
+std::map<int, error_page_t> Client::initDefaultErrorPages(void)
 {
     std::map<int, error_page_t> ret;
-	error_page_t page;
+    error_page_t page;
 
     for (size_t i = 0; i < sizeof(HTTP_ERRORS_STR) / sizeof(const char *); i++)
     {
         int code = atoi(HTTP_ERRORS_STR[i]);
         page.code = code;
-        page.ret =  code;
+        page.ret = code;
         page.path = std::string(DEFAULT_ERROR_PAGES_ROOT) + HTTP_ERRORS_STR[i] + ".html";
-        ret[code] =  page;
+        ret[code] = page;
     }
-    
+
     return ret;
 }
 
@@ -60,14 +58,14 @@ std::string getLocationRelativeRoute(location_t location, std::string route)
     return ret;
 }
 
-void			Client::_handleHead(void)
+void Client::_handleHead(void)
 {
     // HEAD requests are handled exactly like GET, except that we don't send the request body in the Response::send()
     _response.setIgnoreBody(true);
     _handleGet();
 }
 
-void			Client::_handleGet(void)
+void Client::_handleGet(void)
 {
     std::string filepath;
 
@@ -78,65 +76,64 @@ void			Client::_handleGet(void)
         filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
     if (!pathExist(filepath))
-        throw HttpError(HTTP_STATUS_NOT_FOUND); 
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
     if (isDirectory(filepath))
+    {
+        _file_fd = -1;
+        // Check if the location provides an index that is found in this directory.
+        if (_location && !_location->index.empty())
+            _file_fd = _findIndex(filepath, _location->index);
+        // If no index found on the location level, check if the server provides an index that is found in this directory.
+        else if (!_server->indexes.empty())
+            _file_fd = _findIndex(filepath, _server->indexes);
+        // If no index can be found, check if directory listing is enabled
+        if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)))
         {
-            _file_fd = -1;
-            // Check if the location provides an index that is found in this directory.
-            if (_location && !_location->index.empty())
-                _file_fd = _findIndex(filepath, _location->index);
-            // If no index found on the location level, check if the server provides an index that is found in this directory.
-            else if ( !_server->indexes.empty())
-                _file_fd = _findIndex(filepath, _server->indexes);
-            // If no index can be found, check if directory listing is enabled
-            if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)) )
+            // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
+            if (_request.getRoute()[_request.getRoute().size() - 1] != '/')
             {
-                // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
-                if (_request.getRoute()[_request.getRoute().size()-1] != '/')
-                {
-                    printf("REDIERCT\n");
-                    _response.setHeader("Location", _request.getRoute() + "/");
-                    _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
-                    _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
-                    return;
-                }
-                DEBUG("Serving Autoindex");
-                _response.setHeader("Content-Type", "text/html");
-                _setupAutoIndex(_request.getRoute(), filepath);
+                printf("REDIERCT\n");
+                _response.setHeader("Location", _request.getRoute() + "/");
+                _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
+                _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
                 return;
             }
-            // Otherwise throw a 404. (Could have been 403 tho, but tester requires 404)
-            if (_file_fd < 0)
-                throw HttpError(HTTP_STATUS_NOT_FOUND);
+            DEBUG("Serving Autoindex");
+            _response.setHeader("Content-Type", "text/html");
+            _setupAutoIndex(_request.getRoute(), filepath);
+            return;
         }
-        else
-        {
-            _file_fd = ::open(filepath.c_str(), O_RDONLY);
-        }
-        
-        if (_file_fd <= 0)
+        // Otherwise throw a 404. (Could have been 403 tho, but tester requires 404)
+        if (_file_fd < 0)
             throw HttpError(HTTP_STATUS_NOT_FOUND);
-        _setCallback(_file_fd,  &Client::_onReadyToReadFile, POLLIN);
-        _response.setStatus(HTTP_STATUS_SUCCESS);
-        _response.setHeader("Content-Type", Response::getContentType(_request.getRoute()));
+    }
+    else
+    {
+        _file_fd = ::open(filepath.c_str(), O_RDONLY);
+    }
+
+    if (_file_fd <= 0)
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
+    _setCallback(_file_fd, &Client::_onReadyToReadFile, POLLIN);
+    _response.setStatus(HTTP_STATUS_SUCCESS);
+    _response.setHeader("Content-Type", Response::getContentType(_request.getRoute()));
 }
 
-
-void            Client::_handleFormUpload(void)
+void Client::_handleFormUpload(void)
 {
     printf("_handleFormUpload\n");
-    uploadedFile_t                      uplaodedFile;
-    std::string                         boundary;
-    size_t                              pos;
-    std::map<std::string, std::string>  headers = _request.getHeaders();
-    std::vector<std::string>            chunks;
+    uploadedFile_t uplaodedFile;
+    std::string boundary;
+    size_t pos;
+    std::map<std::string, std::string> headers = _request.getHeaders();
+    std::vector<std::string> chunks;
 
-     _response.setStatus(HTTP_STATUS_SUCCESS);
+    _response.setStatus(HTTP_STATUS_SUCCESS);
     if (!hasKey<std::string, std::string>(headers, "content-type") || headers["content-type"].find("multipart/form-data") == std::string::npos)
-        return  _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+        return _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
     pos = headers["content-type"].find("boundary=");
     if (pos == std::string::npos)
-        return  _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
+        return _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
     boundary = "--" + headers["content-type"].substr(pos + 9);
     chunks = splitstr(_request.body, boundary);
     for (std::vector<std::string>::iterator chunk = chunks.begin() + 1; chunk != chunks.end(); chunk++)
@@ -168,7 +165,6 @@ void            Client::_handleFormUpload(void)
                     break;
                 filename = header->substr(pos + 10, header->size() - (pos + 10) - 1);
             }
-            
         }
         if (contentDisposition.empty() || contentDisposition != "form-data")
             continue;
@@ -186,28 +182,28 @@ void            Client::_handleFormUpload(void)
         _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
 }
 
-void            Client::_saveNextFile(void)
+void Client::_saveNextFile(void)
 {
     printf("_saveNextFile\n");
     std::string filepath;
 
-   if (_location && _location->client_body_temp_path.size())
+    if (_location && _location->client_body_temp_path.size())
         filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()), _uploadedFiles[0].filename);
     else if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()),  _uploadedFiles[0].filename);
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()), _uploadedFiles[0].filename);
     else
-        filepath = joinPath(_server->root, _request.getRoute(),  _uploadedFiles[0].filename);
+        filepath = joinPath(_server->root, _request.getRoute(), _uploadedFiles[0].filename);
     DEBUG("post filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
-	    throw HttpError(HTTP_STATUS_NOT_FOUND);
-    
-    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT, 0644);
-    _setCallback(_file_fd,  &Client::_onReadyToWriteUploadedFile, POLLOUT);
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
 
+    _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT, 0644);
+    _setCallback(_file_fd, &Client::_onReadyToWriteUploadedFile, POLLOUT);
 }
 
-void			Client::_handlePost(void) {
+void Client::_handlePost(void)
+{
     std::string filepath;
 
     printf("POSTTTTT\n");
@@ -221,7 +217,7 @@ void			Client::_handlePost(void) {
     DEBUG("post filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
-	    throw HttpError(HTTP_STATUS_NOT_FOUND);
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     // Parse form data if POST on a directory
     if (isDirectory(filepath))
@@ -230,17 +226,16 @@ void			Client::_handlePost(void) {
         return _handleFormUpload();
     }
 
-
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_APPEND, 0644);
 
     _response.setStatus(HTTP_STATUS_CREATED);
-    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLOUT);
+    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLOUT);
 }
 
-void			Client::_handlePut(void)
+void Client::_handlePut(void)
 {
-   std::string filepath;
+    std::string filepath;
 
     // Generate the file path from the configured folder
     if (_location && _location->client_body_temp_path.size())
@@ -252,20 +247,20 @@ void			Client::_handlePut(void)
     DEBUG("put filepath: %s", filepath.c_str());
 
     if (!parentDirExists(filepath))
-	    throw HttpError(HTTP_STATUS_NOT_FOUND);
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     // can't do a POST request on a directory
     if (isDirectory(filepath))
-	    throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+        throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLIN);
+    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_CREATED);
 }
 
-void			Client::_handleDelete(void)
+void Client::_handleDelete(void)
 {
     std::string filepath;
 
@@ -278,30 +273,30 @@ void			Client::_handleDelete(void)
 
     // can't do a DELETE request on a directory
     if (isDirectory(filepath))
-	throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
+        throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
     if (!pathExist(filepath.c_str()))
-	    throw HttpError(HTTP_STATUS_NOT_FOUND);
+        throw HttpError(HTTP_STATUS_NOT_FOUND);
 
     remove(filepath.c_str());
 
-    _setCallback(_file_fd,  &Client::_onReadyToWriteFile, POLLIN);
+    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLIN);
     _response.setStatus(HTTP_STATUS_SUCCESS);
 }
 
-void			Client::_handleCgi(void)
+void Client::_handleCgi(void)
 {
-    int                         stdoutLink[2];
-    int                         stdinLink[2];
-    int                         status;
-    pid_t                       pid;
+    int stdoutLink[2];
+    int stdinLink[2];
+    int status;
+    pid_t pid;
 
-    std::vector<std::string>    args;
-    std::vector<char *>         cArgs;
-    std::vector<std::string>    env;
-    std::vector<char *>         cEnv;
-    std::string                 filepath;
-    std::stringstream           ss;
+    std::vector<std::string> args;
+    std::vector<char *> cArgs;
+    std::vector<std::string> env;
+    std::vector<char *> cEnv;
+    std::string filepath;
+    std::stringstream ss;
     DEBUG("Sending request to CGI");
     if (!pathExist(_location->cgi_pass))
         throw std::runtime_error("CGI path doesnt exist");
@@ -337,7 +332,7 @@ void			Client::_handleCgi(void)
     for (std::map<std::string, std::string>::iterator it = _request.headers.begin(); it != _request.headers.end(); it++)
     {
         std::string var = "HTTP_" + it->first;
-        std::transform(var.begin(), var.end(),var.begin(), ::toupper);
+        std::transform(var.begin(), var.end(), var.begin(), ::toupper);
         var += "=" + it->second;
         std::replace(var.begin(), var.end(), '-', '_');
         env.push_back(var);
@@ -351,10 +346,10 @@ void			Client::_handleCgi(void)
         throw std::runtime_error("Error creating pipe");
     if (pipe(stdinLink) < 0)
         throw std::runtime_error("Error creating pipe");
-    
+
     if ((pid = fork()) == -1)
         throw std::runtime_error("Error while calling fork()");
-    
+
     if (pid == 0)
     {
         dup2(stdoutLink[1], STDOUT_FILENO);
@@ -373,13 +368,12 @@ void			Client::_handleCgi(void)
         _file_fd = stdoutLink[0];
         close(stdoutLink[1]);
         close(stdinLink[0]);
-        _setCallback(_cgi_stdin_fd,  &Client::_onReadyToWriteCgi, POLLOUT);
-        _setCallback(_file_fd,  &Client::_onReadyToReadCgi, POLLIN);
+        _setCallback(_cgi_stdin_fd, &Client::_onReadyToWriteCgi, POLLOUT);
+        _setCallback(_file_fd, &Client::_onReadyToReadCgi, POLLIN);
     }
 }
 
-
-int     Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
+int Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
 {
     int fd;
     std::string path;
@@ -393,13 +387,13 @@ int     Client::_findIndex(std::string dir, std::vector<std::string> const &cand
     return -1;
 }
 
-bool	Client::readFileToResponseBody(void)
+bool Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
-    _buffer[ret] = 0; 
+    _buffer[ret] = 0;
     if (ret > 0)
         _response.appendToBody(std::string(_buffer, ret));
-    if (ret < BUFFER_SIZE - 1 ||  ret <= 0)
+    if (ret < BUFFER_SIZE - 1 || ret <= 0)
     {
         close(_file_fd);
         return true;
@@ -407,73 +401,91 @@ bool	Client::readFileToResponseBody(void)
     return false;
 }
 
-void			Client::_onReadyToReadRequest(void)
+void Client::_onReadyToReadRequest(void)
 {
-        std::string method;
-        std::vector<std::string> allowedMethods;
+    std::string method;
+    std::vector<std::string> allowedMethods;
 
-        char buff[1000000];
-        int ret;
+    char buff[1000000];
+    int ret;
 
-        ret = recv(connection_fd, buff, sizeof(buff), 0);
-        if (ret <= 0)
-            throw ConnectionResetByPeerException(socket, connection_fd);
-        else
-        {
-            // Append what we just read to the request payload
-            _request.appendToPayload(buff, ret);
-            // Parse what we already have off the request and return now if we have more to read
-            if (!_request.parse())
-                return;
-        }
-        _clearCallback(connection_fd);
-        _status = STATUS_PROCESSING;
-        // If we have read the whole request...
-        // store the server and location of the request locally for convinience
-        _server = _request.getServer();
-        _location = _request.getLocation();
-    
-        if (_location && !_location->cgi_pass.empty())
-            return _handleCgi();
-        // Handle the request according to its method
-        method = _request.getMethod();
-        if (method == "GET")
-            _handleGet();
-        else if (method == "HEAD")
-            _handleHead();
-        else if (method == "POST")
-            _handlePost();
-        else if (method == "PUT")
-            _handlePut();
-        else if (method == "DELETE")
-            _handleDelete();
-        
+    ret = recv(connection_fd, buff, sizeof(buff), 0);
+    if (ret <= 0)
+        throw ConnectionResetByPeerException(socket, connection_fd);
+    else
+    {
+        // Append what we just read to the request payload
+        _request.appendToPayload(buff, ret);
+        // Parse what we already have off the request and return now if we have more to read
+        if (!_request.parse())
+            return;
+    }
+    _clearCallback(connection_fd);
+    _status = STATUS_PROCESSING;
+    // If we have read the whole request...
+    // store the server and location of the request locally for convinience
+    _server = _request.getServer();
+    _location = _request.getLocation();
+
+    if (_location && !_location->cgi_pass.empty())
+        return _handleCgi();
+    // Handle the request according to its method
+    method = _request.getMethod();
+    if (method == "GET")
+        _handleGet();
+    else if (method == "HEAD")
+        _handleHead();
+    else if (method == "POST")
+        _handlePost();
+    else if (method == "PUT")
+        _handlePut();
+    else if (method == "DELETE")
+        _handleDelete();
 }
 
-void			Client::_onReadyToReadFile(void)
+void Client::_onReadyToReadFile(void)
 {
     bool empty = readFileToResponseBody();
     if (empty)
     {
-        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+        _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
         _clearCallback(_file_fd);
     }
 }
 
-void			Client::_onReadyToSend(void)
+void Client::_onReadyToTest(void)
+{
+    char buff;
+    size_t size = recv(connection_fd, &buff, 1, 0);
+    printf("_onReadyToTest\n");
+    printf("read %ld\n", size);
+    if (!size)
+    {
+        close(connection_fd);
+        _clearCallback(connection_fd);
+        _isClosed = true;
+        printf("CLOSE\n");
+    }
+    else
+    {
+        ERROR("ERROR");
+    }
+}
+
+void Client::_onReadyToSend(void)
 {
     struct timeval now;
     gettimeofday(&now, NULL);
     int status;
 
-    uint64_t delay =  ((now.tv_sec - _t0.tv_sec) * 1000000 + now.tv_usec - _t0.tv_usec) / 1000;
+    uint64_t delay = ((now.tv_sec - _t0.tv_sec) * 1000000 + now.tv_usec - _t0.tv_usec) / 1000;
     status = _response.getStatus();
     if (status >= 200 && status < 300)
         INFO("%s:%d - %s %s %s " COLOR_GREEN "%d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
     else if (status == 100 || status == 301)
-        INFO("%s:%d - %s %s %s " COLOR_BLUE" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
+        INFO("%s:%d - %s %s %s " COLOR_BLUE " %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
     else
-        INFO("%s:%d - %s %s %s " COLOR_RED" %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
+        INFO("%s:%d - %s %s %s " COLOR_RED " %d" COLOR_RESET " %ld ms", addr.c_str(), port, _request.getMethod().c_str(), _request.getUri().c_str(), _request.getUserAgent().c_str(), status, delay);
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
@@ -488,15 +500,16 @@ void			Client::_onReadyToSend(void)
     else
     {
         _clearCallback(connection_fd);
-        close(connection_fd);
-        _isClosed = true;
+        _setCallback(connection_fd, &Client::_onReadyToTest, POLLIN);
+        // close(connection_fd);
+        // _isClosed = true;
         DEBUG("Closing connection");
-    }    
+    }
 }
 
-void            Client::_onReadyToWriteCgi(void)
+void Client::_onReadyToWriteCgi(void)
 {
-    size_t size = _request.body.size() < 30000 ?  _request.body.size() : 30000;
+    size_t size = _request.body.size() < 30000 ? _request.body.size() : 30000;
 
     write(_cgi_stdin_fd, _request.body.c_str(), size);
     _request.body.erase(0, size);
@@ -505,16 +518,16 @@ void            Client::_onReadyToWriteCgi(void)
         return;
     close(_cgi_stdin_fd);
     _clearCallback(_cgi_stdin_fd);
-    DEBUG("Done writing to CGI"); 
+    DEBUG("Done writing to CGI");
 }
 
-void            Client::_onReadyToReadCgi(void)
+void Client::_onReadyToReadCgi(void)
 {
     int status;
-    char    buff[100000];
+    char buff[100000];
     std::vector<std::string> lines;
-    bool    statusSet = false;
-    size_t  bodyStart = 0;
+    bool statusSet = false;
+    size_t bodyStart = 0;
 
     int size = read(_file_fd, buff, sizeof(buff) - 1);
     buff[size] = 0;
@@ -522,8 +535,9 @@ void            Client::_onReadyToReadCgi(void)
     if (size > 0)
     {
         _cgiPayload.append(buff, size);
-        return ;
-    } else if (size < 0)
+        return;
+    }
+    else if (size < 0)
     {
         throw std::runtime_error("Error reading CGI ouput");
     }
@@ -532,7 +546,7 @@ void            Client::_onReadyToReadCgi(void)
         pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
         if (finished > 0)
         {
-            
+
             lines = splitstr(_cgiPayload, "\r\n");
             for (size_t i = 0; i < lines.size(); i++)
             {
@@ -543,7 +557,7 @@ void            Client::_onReadyToReadCgi(void)
                 if ((col = lines[i].find(':')) != std::string::npos)
                 {
                     std::string fieldName = lines[i].substr(0, col);
-                    std::string value = lines[i].substr(col + 1, lines[i].size() - col -1);
+                    std::string value = lines[i].substr(col + 1, lines[i].size() - col - 1);
                     _response.setHeader(fieldName, value);
                     if (fieldName == "Status")
                     {
@@ -558,17 +572,17 @@ void            Client::_onReadyToReadCgi(void)
                 _response.setStatus(HTTP_STATUS_SUCCESS);
             _clearCallback(_file_fd);
             close(_file_fd);
-            _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+            _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
             return;
         }
         else if (finished < 0)
             throw std::runtime_error("waitpid error");
         // if finished == 0, the cgi hasnt finished yet
     }
-
 }
 
-void			Client::_onReadyToWriteUploadedFile(void) {
+void Client::_onReadyToWriteUploadedFile(void)
+{
     printf("_onReadyToWriteUploadedFile\n");
     write(_file_fd, _uploadedFiles[0].content.c_str(), _uploadedFiles[0].content.size());
     _clearCallback(_file_fd);
@@ -578,17 +592,18 @@ void			Client::_onReadyToWriteUploadedFile(void) {
     else
     {
         _response.setStatus(HTTP_STATUS_SUCCESS);
-        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+        _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
     }
 }
 
-void			Client::_onReadyToWriteFile(void) {
+void Client::_onReadyToWriteFile(void)
+{
     write(_file_fd, _request.getBody().c_str(), _request.getBody().size());
     _clearCallback(_file_fd);
-    _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+    _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
 }
 
-void			Client::_onHttpError(const HttpError& e)
+void Client::_onHttpError(const HttpError &e)
 {
     error_page_t errorPage;
     _response.clearBody();
@@ -596,7 +611,7 @@ void			Client::_onHttpError(const HttpError& e)
     if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
         errorPage = _request.getLocation()->error_pages.at(e.status);
     else if (_request.getServer() && hasKey<int, error_page_t>(_request.getServer()->error_pages, e.status))
-        errorPage =  _request.getServer()->error_pages.at(e.status);
+        errorPage = _request.getServer()->error_pages.at(e.status);
     else
     {
         DEBUG("No error page found - serving default");
@@ -605,43 +620,43 @@ void			Client::_onHttpError(const HttpError& e)
     DEBUG("Error page: %s", errorPage.path.c_str());
     _response.setStatus(errorPage.code);
     _file_fd = ::open(errorPage.path.c_str(), O_RDONLY);
-    _setCallback(_file_fd,  &Client::_onReadyToReadFile, POLLIN);
+    _setCallback(_file_fd, &Client::_onReadyToReadFile, POLLIN);
     _clearCallback(connection_fd);
 }
 
-    void			Client::_setCallback(int fd, callback_t cb)
-    {
-        _callbacks[fd] = cb;
-    }
-    void			Client::_setCallback(int fd, callback_t cb, uint32_t events)
-    {
-        _core->registerFd(fd, events, this);
-        _callbacks[fd] = cb;
-    }
+void Client::_setCallback(int fd, callback_t cb)
+{
+    _callbacks[fd] = cb;
+}
+void Client::_setCallback(int fd, callback_t cb, uint32_t events)
+{
+    _core->registerFd(fd, events, this);
+    _callbacks[fd] = cb;
+}
 
-    void			Client::_clearCallback(int fd)
-    {
-        _core->unregisterFd(fd);
-        _callbacks.erase(fd);
-    }
+void Client::_clearCallback(int fd)
+{
+    _core->unregisterFd(fd);
+    _callbacks.erase(fd);
+}
 
-bool        Client::resume(int fd)
+bool Client::resume(int fd)
 {
     try
     {
         (this->*(_callbacks[fd]))();
     }
-    catch(const HttpError& e)
+    catch (const HttpError &e)
     {
         _onHttpError(e);
     }
-    catch(const Expect100& e)
+    catch (const Expect100 &e)
     {
         _response.clearBody();
         _response.setStatus(HTTP_STATUS_CONTINUE);
         _response.setHeader("Connection", "keep-alive");
         _clearCallback(connection_fd);
-        _setCallback(connection_fd,  &Client::_onReadyToSend, POLLOUT);
+        _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
     }
     catch (ConnectionResetByPeerException &e)
     {
@@ -659,10 +674,9 @@ bool        Client::resume(int fd)
         _onHttpError(HttpError(HTTP_STATUS_INTERNAL_SERVER_ERROR));
     }
     return _isClosed;
-    
 }
 
-Server *			Client::findServer(void)
+Server *Client::findServer(void)
 {
     std::vector<Server *> candidates = *socket->get_servers();
     std::vector<Server *> results;
@@ -700,7 +714,6 @@ Server *			Client::findServer(void)
     if (results.size() > 1)
         candidates = results;
 
-
     std::map<std::string, std::string>::const_iterator host_it = _request.getHeaders().find("host");
     if (host_it == _request.getHeaders().end())
         host_it = _request.getHeaders().find("Host");
@@ -726,7 +739,7 @@ Server *			Client::findServer(void)
     {
         size_t longestMatch = 0; // store the longest match yet for this server.
         // Iterate over each server_name
-        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it++)
         {
             // Check if the server_name starts with a '*', ignore otherwise
             if (name_it->at(0) != '*')
@@ -761,14 +774,14 @@ Server *			Client::findServer(void)
     // If we have a winner returns it, otherwise forget the previous part and start over with the trailing matches.
     if (results.size() == 1)
         return results[0];
-    
+
     // 4. server_name trailing * match
     results.clear();
     matches.clear();
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
         size_t longestMatch = 0;
-        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it++)
         {
             if (name_it->at(name_it->size() - 1) != '*')
                 continue;
@@ -795,12 +808,12 @@ Server *			Client::findServer(void)
     }
     if (results.size() == 1)
         return results[0];
-    
+
     // If no server is found, fallback to the default server.
     return candidates.front();
 }
 
-void				Client::timeout(void)
+void Client::timeout(void)
 {
     // Ignore if we're already timedout, and in the process of closing the client to prevent entering an infinite loop.
     if (_timedOut)
@@ -811,5 +824,4 @@ void				Client::timeout(void)
     if (_status == STATUS_WAIT_FOR_REQUEST)
         return _onHttpError(HttpError(HTTP_STATUS_REQUEST_TIMEOUT));
     return _onHttpError(HttpError(HTTP_STATUS_GATEWAY_TIMEOUT));
-    
 }

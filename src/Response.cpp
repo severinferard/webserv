@@ -3,7 +3,7 @@
 std::map<int, std::string> Response::HTTP_STATUS = Response::initHttpStatus();
 std::map<std::string, std::string> Response::MIME_TYPES = initMimeTypes();
 
-Response::Response()
+Response::Response() : _ignoreBody(false)
 {
 }
 
@@ -11,7 +11,7 @@ Response::~Response()
 {
 }
 
-std::map<int, std::string>  Response::initHttpStatus(void)
+std::map<int, std::string> Response::initHttpStatus(void)
 {
     std::map<int, std::string> ret;
 
@@ -58,17 +58,17 @@ int Response::getStatus(void) const
     return _status;
 }
 
-void        Response::setIgnoreBody(bool b)
+void Response::setIgnoreBody(bool b)
 {
     _ignoreBody = b;
 }
 
-std::string  Response::getContentType(std::string ext)
+std::string Response::getContentType(std::string ext)
 {
     if (Response::MIME_TYPES.find(ext) == Response::MIME_TYPES.end())
- 	    return "html";
+        return "html";
     return Response::MIME_TYPES[ext];
- }
+}
 
 void Response::send(int fd)
 {
@@ -85,9 +85,9 @@ void Response::send(int fd)
         _payload += it->first + ": " + it->second + "\r\n";
 
     _payload += "\r\n";
-    if (!_ignoreBody)           // don't send body on HEAD request
+    if (!_ignoreBody) // don't send body on HEAD request
         _payload += _body;
-    ::send(fd, _payload.c_str(), _payload.size(), 0);
+    printf("send res %ld      %ld\n", ::send(fd, _payload.c_str(), _payload.size(), 0), _body.size());
 }
 
 void Response::sendRaw(int fd)
