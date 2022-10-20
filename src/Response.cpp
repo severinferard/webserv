@@ -70,6 +70,7 @@ std::string Response::getContentType(std::string ext)
     return Response::MIME_TYPES[ext];
 }
 
+#include <stdio.h>
 void Response::send(int fd)
 {
     if (!hasKey<std::string, std::string>(_headers, "Content-Type") && !hasKey<std::string, std::string>(_headers, "Content-type"))
@@ -87,7 +88,7 @@ void Response::send(int fd)
     _payload += "\r\n";
     if (!_ignoreBody) // don't send body on HEAD request
         _payload += _body;
-    printf("send res %ld      %ld\n", ::send(fd, _payload.c_str(), _payload.size(), 0), _body.size());
+    ::send(fd, _payload.c_str(), _payload.size(), 0);
 }
 
 void Response::sendRaw(int fd)

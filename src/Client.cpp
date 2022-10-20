@@ -500,7 +500,7 @@ void Client::_onReadyToSend(void)
     else
     {
         _clearCallback(connection_fd);
-        _setCallback(connection_fd, &Client::_onReadyToTest, POLLIN);
+        _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
         // close(connection_fd);
         // _isClosed = true;
         DEBUG("Closing connection");
@@ -664,6 +664,7 @@ bool Client::resume(int fd)
         DEBUG("Closing");
         close(connection_fd);
         _clearCallback(connection_fd);
+        _isClosed = true;
     }
     catch (std::exception &e)
     {
