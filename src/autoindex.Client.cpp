@@ -25,11 +25,10 @@ static std::string             makeLine(std::string path, dirent &node)
 
     // Calculate the full path to pass it to stat()
     fullPath = joinPath(path, node.d_name);
-    fullPath = "." + fullPath;
 
     memset(&stats,0,sizeof(stats));
-    stat(fullPath.c_str(), &stats);
-
+    int ret = stat(fullPath.c_str(), &stats);
+    printf("stat ret %s %s %d\n", path.c_str(), fullPath.c_str(), ret);
     // Format the date in dateBuff[]
     strftime(dateBuff, sizeof(dateBuff), "%d-%b-%Y %H:%M", localtime(&stats.st_mtime));
 
@@ -79,11 +78,14 @@ void			Client::_onReadyToReadDir()
     // Sort alphabetically and dir first then files
     std::sort(_autoindexNodes.begin(), _autoindexNodes.end(), autoindexSortNodes);
 
-    
-
+    std::string filepath;
+    if (_location && !_location->root.empty())
+        filepath = joinPath(_location->root, _request.getRoute());
+    else
+        filepath = joinPath(_server->root, _request.getRoute());
     // Loop over each node and write the corresponding line
     for (std::vector<struct dirent>::iterator it = _autoindexNodes.begin(); it != _autoindexNodes.end(); it++)
-        _response.appendToBody(makeLine(_request.getUri(), *it));
+        _response.appendToBody(makeLine(filepath, *it));
     
     // Close the html tags
     _response.appendToBody("</pre><hr></body></html>");
