@@ -75,8 +75,7 @@ void Response::send(int fd)
 {
     if (!hasKey<std::string, std::string>(_headers, "Content-Type") && !hasKey<std::string, std::string>(_headers, "Content-type"))
         setHeader("Content-Type", "text/html");
-    if (_body.size())
-        setHeader("Content-Length", toString(_body.size()));
+    setHeader("Content-Length", toString(_body.size()));
     if (!hasKey<std::string, std::string>(_headers, "Connection"))
         setHeader("Connection", "close");
 

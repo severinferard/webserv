@@ -71,6 +71,7 @@ private:
 	int _cgi_pid;
 	int _cgi_stdin_fd;
 	bool _isClosed;
+	bool _keepAlive;
 	std::vector<uploadedFile_t> _uploadedFiles;
 	void _onReadyToReadRequest();
 	void _onReadyToTest();

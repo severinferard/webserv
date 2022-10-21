@@ -11,6 +11,7 @@ Client::Client(WebservCore *core, std::string addr, int port, const Socket *sock
                                                                                               __log_fd(fd),
                                                                                               _timedOut(false),
                                                                                               _isClosed(false),
+                                                                                              _keepAlive(true),
                                                                                               addr(addr),
                                                                                               port(port),
                                                                                               socket(socket),
@@ -92,7 +93,6 @@ void Client::_handleGet(void)
             // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
             if (_request.getRoute()[_request.getRoute().size() - 1] != '/')
             {
-                printf("REDIERCT\n");
                 _response.setHeader("Location", _request.getRoute() + "/");
                 _response.setStatus(HTTP_STATUS_MOVED_PERMANENTLY);
                 _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
@@ -170,8 +170,6 @@ void Client::_handleFormUpload(void)
             continue;
         if (filename.empty())
             continue;
-        printf("OK %s\n", filename.c_str());
-        printf("towrite %s\n", chunk->substr(bodyStart, chunk->size() - bodyStart - 2).c_str());
         uplaodedFile.filename = filename;
         uplaodedFile.content = chunk->substr(bodyStart, chunk->size() - bodyStart - 2);
         _uploadedFiles.push_back(uplaodedFile);
@@ -184,7 +182,6 @@ void Client::_handleFormUpload(void)
 
 void Client::_saveNextFile(void)
 {
-    printf("_saveNextFile\n");
     std::string filepath;
 
     if (_location && _location->client_body_temp_path.size())
@@ -222,7 +219,6 @@ void Client::_handlePost(void)
     // Parse form data if POST on a directory
     if (isDirectory(filepath))
     {
-        printf("here\n");
         return _handleFormUpload();
     }
 
@@ -391,6 +387,7 @@ bool Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
     _buffer[ret] = 0;
+    printf("RET %d\n", ret);
     if (ret > 0)
         _response.appendToBody(std::string(_buffer, ret));
     if (ret < BUFFER_SIZE - 1 || ret <= 0)
@@ -411,7 +408,7 @@ void Client::_onReadyToReadRequest(void)
 
     ret = recv(connection_fd, buff, sizeof(buff), 0);
     if (ret <= 0)
-        throw ConnectionResetByPeerException(socket, connection_fd);
+        throw ConnectionResetByPeerException();
     else
     {
         // Append what we just read to the request payload
@@ -445,6 +442,7 @@ void Client::_onReadyToReadRequest(void)
 
 void Client::_onReadyToReadFile(void)
 {
+    printf("_onReadyToReadFile %d\n", _file_fd);
     bool empty = readFileToResponseBody();
     if (empty)
     {
@@ -453,24 +451,24 @@ void Client::_onReadyToReadFile(void)
     }
 }
 
-void Client::_onReadyToTest(void)
-{
-    char buff;
-    size_t size = recv(connection_fd, &buff, 1, 0);
-    printf("_onReadyToTest\n");
-    printf("read %ld\n", size);
-    if (!size)
-    {
-        close(connection_fd);
-        _clearCallback(connection_fd);
-        _isClosed = true;
-        printf("CLOSE\n");
-    }
-    else
-    {
-        ERROR("ERROR");
-    }
-}
+// void Client::_onReadyToTest(void)
+// {
+//     char buff;
+//     size_t size = recv(connection_fd, &buff, 1, 0);
+//     printf("_onReadyToTest\n");
+//     printf("read %ld\n", size);
+//     if (!size)
+//     {
+//         close(connection_fd);
+//         _clearCallback(connection_fd);
+//         _isClosed = true;
+//         printf("CLOSE\n");
+//     }
+//     else
+//     {
+//         ERROR("ERROR");
+//     }
+// }
 
 void Client::_onReadyToSend(void)
 {
@@ -489,20 +487,29 @@ void Client::_onReadyToSend(void)
     // if (_request.getLocation() && _request.getLocation()->cgi_pass.size())
     //     _response.sendRaw(connection_fd);
     // else
+    if (_keepAlive)
+        _response.setHeader("Connection", "Keep-Alive"); // Not mandatory for HTTP/1.1
+    else
+        _response.setHeader("Connection", "Close");
+
     _response.send(connection_fd);
-    if (_response.keepAlive())
+    if (_keepAlive)
     {
         _clearCallback(connection_fd);
         _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
         _response = Response();
+        _request = Request(socket, connection_fd);
+        _cgiPayload.clear();
+        _status = STATUS_WAIT_FOR_REQUEST;
+        _autoindexNodes.clear();
         DEBUG("Keeping connection opened");
     }
     else
     {
         _clearCallback(connection_fd);
-        _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
-        // close(connection_fd);
-        // _isClosed = true;
+        // _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
+        close(connection_fd);
+        _isClosed = true;
         DEBUG("Closing connection");
     }
 }
@@ -607,6 +614,7 @@ void Client::_onHttpError(const HttpError &e)
 {
     error_page_t errorPage;
     _response.clearBody();
+    _keepAlive = false;
     WARNING("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
     if (_request.getLocation() && hasKey<int, error_page_t>(_request.getLocation()->error_pages, e.status))
         errorPage = _request.getLocation()->error_pages.at(e.status);
@@ -660,8 +668,8 @@ bool Client::resume(int fd)
     }
     catch (ConnectionResetByPeerException &e)
     {
-        std::cout << e.what() << std::endl;
-        DEBUG("Closing");
+        // std::cout << e.what() << std::endl;
+        INFO("%s", e.what());
         close(connection_fd);
         _clearCallback(connection_fd);
         _isClosed = true;
