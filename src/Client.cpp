@@ -496,12 +496,14 @@ void Client::_onReadyToSend(void)
     if (_keepAlive)
     {
         _clearCallback(connection_fd);
+        _clearCallback(_file_fd);
         _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
         _response = Response();
         _request = Request(socket, connection_fd);
         _cgiPayload.clear();
         _status = STATUS_WAIT_FOR_REQUEST;
         _autoindexNodes.clear();
+        connectionTimestamp = time(NULL);
         DEBUG("Keeping connection opened");
     }
     else
@@ -613,6 +615,7 @@ void Client::_onReadyToWriteFile(void)
 void Client::_onHttpError(const HttpError &e)
 {
     error_page_t errorPage;
+    _clearCallback(_file_fd);
     _response.clearBody();
     _keepAlive = false;
     WARNING("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
@@ -827,6 +830,12 @@ void Client::timeout(void)
     // Ignore if we're already timedout, and in the process of closing the client to prevent entering an infinite loop.
     if (_timedOut)
         return;
+    if (_request.getPayload().empty())
+    {
+        close(connection_fd);
+        _isClosed = true;
+        return;
+    }
 
     WARNING("Timeout");
     _timedOut = true;

@@ -298,7 +298,7 @@ int Request::parse(void)
                     std::stringstream ss;
                     std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
                     ss << line;
-                    printf("line %s\n", line.c_str());
+                    // printf("line %s\n", line.c_str());
                     ss >> std::hex >> _currentChunk.size;
                     if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
                         throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);

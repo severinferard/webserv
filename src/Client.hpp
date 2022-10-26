@@ -103,7 +103,7 @@ public:
 	const Socket *socket;
 	const int connection_fd;
 	static std::map<int, error_page_t> DEFAULT_ERROR_PAGES;
-	const time_t connectionTimestamp;
+	time_t connectionTimestamp;
 
 	Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd);
 	~Client();
