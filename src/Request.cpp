@@ -1,17 +1,16 @@
-# include "Request.hpp"
+#include "Request.hpp"
 
 //@TODO redirect 301 autoindex without /
 
 static const std::string LINE_DELIMITER = "\r\n";
 
-Request::Request(const Socket *sock, int connection_fd):
-_fd(sock->get_fd()),
-__log_fd(connection_fd),
-_socket(sock),
-_server(NULL),
-_hasLocation(false),
-_headerReceived(false),
-_chunked(false)
+Request::Request(const Socket *sock, int connection_fd) : _fd(sock->get_fd()),
+                                                          __log_fd(connection_fd),
+                                                          _socket(sock),
+                                                          _server(NULL),
+                                                          _hasLocation(false),
+                                                          _headerReceived(false),
+                                                          _chunked(false)
 {
     // LOG(DebugP, "new request %d", 42);
 }
@@ -20,32 +19,32 @@ Request::~Request()
 {
 }
 
-std::string                         Request::getUri(void) const
+std::string Request::getUri(void) const
 {
     return _uri;
 }
 
-std::string                         Request::getMethod(void) const
+std::string Request::getMethod(void) const
 {
     return _method;
 }
 
-std::string                         Request::getVersion(void) const
+std::string Request::getVersion(void) const
 {
     return _version;
 }
 
-const std::map<std::string, std::string>  &Request::getHeaders(void) const
+const std::map<std::string, std::string> &Request::getHeaders(void) const
 {
     return headers;
 }
 
-std::string                         Request::getBody(void) const
+std::string Request::getBody(void) const
 {
     return body;
 }
 
-int         Request::getFd(void) const
+int Request::getFd(void) const
 {
     return _fd;
 }
@@ -55,61 +54,61 @@ std::string Request::getPayload(void) const
     return _payload;
 }
 
-location_t                          *Request::getLocation(void)
+location_t *Request::getLocation(void)
 {
     return _hasLocation ? &_location : NULL;
 }
 
-Server                              *Request::getServer(void) const
+Server *Request::getServer(void) const
 {
     return _server;
 }
 
-std::string                         Request::getRoute(void) const
+std::string Request::getRoute(void) const
 {
     return _route;
 }
 
-std::string                         Request::getQueryString(void) const
+std::string Request::getQueryString(void) const
 {
     return _queryString;
 }
 
-std::string                         Request::getUserAgent(void) const
+std::string Request::getUserAgent(void) const
 {
     return _userAgent;
 }
 
-size_t                              Request::getContentLength(void) const
+size_t Request::getContentLength(void) const
 {
     return _contentLength;
 }
 
-void        Request::_setHeaders(std::map<std::string, std::string> headers)
+void Request::_setHeaders(std::map<std::string, std::string> headers)
 {
     this->headers = headers;
 }
 
-void        Request::_addHeader(std::string line, std::map<std::string, std::string> &headers)
+void Request::_addHeader(std::string line, std::map<std::string, std::string> &headers)
 {
-    std::string	name;
-    std::string	value;
-    size_t	i;
+    std::string name;
+    std::string value;
+    size_t i;
 
     i = line.find(':');
     if (i == std::string::npos || i == 0)
-	    throw HttpError(HTTP_STATUS_BAD_REQUEST);
+        throw HttpError(HTTP_STATUS_BAD_REQUEST);
 
     name = tolowerstr(line.substr(0, i));
     if (has_whitespace(name))
-	    throw HttpError(HTTP_STATUS_BAD_REQUEST);
+        throw HttpError(HTTP_STATUS_BAD_REQUEST);
 
-    value = trimstr(line.substr(i+1));
+    value = trimstr(line.substr(i + 1));
 
     if (headers.find(name) == headers.end())
-	    headers[name] = value;
+        headers[name] = value;
     else
-	    headers[name] += "," + value;
+        headers[name] += "," + value;
 }
 
 std::vector<std::string> splitLines(std::string payload)
@@ -146,9 +145,9 @@ static bool isEmptyLine(std::string line)
     return line == "\r\n";
 }
 
-void        Request::validate(std::vector<std::string>lines, size_t headerLineCount)
+void Request::validate(std::vector<std::string> lines, size_t headerLineCount)
 {
-    std::vector<std::string>            allowedMethods;
+    std::vector<std::string> allowedMethods;
     // Throw 400 if the request doesnt provide a Host header
     if (!hasKey<std::string, std::string>(headers, "Host") && !hasKey<std::string, std::string>(headers, "host"))
         throw HttpError(HTTP_STATUS_BAD_REQUEST);
@@ -166,13 +165,13 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
 
     // Check if the methods are restricted for this route
     allowedMethods = _hasLocation && !_location.allowed_methods.empty()
-            ? _location.allowed_methods
-            : _server->allowed_methods;
+                         ? _location.allowed_methods
+                         : _server->allowed_methods;
 
     // If so, return 405 if the method is not allowed
     if (!allowedMethods.empty() && std::find(allowedMethods.begin(), allowedMethods.end(), _method) == allowedMethods.end())
         throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
-    
+
     // Calculate the position of the first character of the body in the payload
     _bodyStart = 0;
     for (size_t i = 0; i < headerLineCount; i++)
@@ -209,7 +208,7 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         if (_hasLocation && _location.client_max_body_size >= 0 && _contentLength > (size_t)_location.client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-        if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >=0 && _contentLength > (size_t)_server->client_max_body_size)
+        if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && _contentLength > (size_t)_server->client_max_body_size)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
     }
 
@@ -217,11 +216,11 @@ void        Request::validate(std::vector<std::string>lines, size_t headerLineCo
         throw Expect100();
 }
 
-int        Request::parse(void)
+int Request::parse(void)
 {
-    std::vector<std::string>            lines;
-    std::vector<std::string>            requestLine;
-    std::map<std::string, std::string>  headers;
+    std::vector<std::string> lines;
+    std::vector<std::string> requestLine;
+    std::map<std::string, std::string> headers;
     if (!_headerReceived)
     {
         // Spit the buffer into lines arround the /r/n
@@ -232,6 +231,7 @@ int        Request::parse(void)
             return false;
         // Parse the first line with method, uri and protocol version and check if it's correct
         requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
+        printf("LINE %ld %ld %d\n", requestLine.size(), lines[0].size(), lines[0] == "\r\n");
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         _method = requestLine[0];
@@ -242,11 +242,11 @@ int        Request::parse(void)
         {
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         }
- 	    if (!isSupportedHttpMethod(_method))
+        if (!isSupportedHttpMethod(_method))
         {
             throw HttpError(HTTP_STATUS_NOT_IMPLEMENTED);
         }
-        
+
         if (!isValidHttpVersion(_version))
         {
             throw HttpError(HTTP_STATUS_VERSION_NOT_SUPPORTED);
@@ -254,7 +254,7 @@ int        Request::parse(void)
 
         // Parse headers until empty line or a line not completed
         size_t headerLineCount = 1;
-        //printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
+        // printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
         while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
             if (lines[headerLineCount].size() > MAX_HEADER_SIZE)
@@ -267,7 +267,7 @@ int        Request::parse(void)
 
         // Check if we reached the end of the header
         if (isEmptyLine(lines[headerLineCount]))
-        {   
+        {
             _headerReceived = true;
             _setHeaders(headers);
             print_headers(headers);
@@ -278,7 +278,7 @@ int        Request::parse(void)
             return false;
         }
     }
-   
+
     // This part is executed only when the header has already been received
     if (_method == "GET")
     {
@@ -286,7 +286,7 @@ int        Request::parse(void)
     }
     else if (_method == "POST" || _method == "PUT")
     {
-        
+
         if (_chunked)
         {
             // Read until we have at least 1 complete line with \r\n
@@ -298,6 +298,7 @@ int        Request::parse(void)
                     std::stringstream ss;
                     std::string line = splitstr(_payload.substr(_currentChunk.start), LINE_DELIMITER)[0];
                     ss << line;
+                    printf("line %s\n", line.c_str());
                     ss >> std::hex >> _currentChunk.size;
                     if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
                         throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
@@ -309,9 +310,14 @@ int        Request::parse(void)
                     if (_currentChunk.size == 0)
                     {
                         _contentLength = body.size(); // used for CGI
+                        _currentChunk.hasSize = true;
+                        if (_payload.size() - _currentChunk.start < 2) // check whether the last \r\n have alraedy been read, otherwise return false to trigger one last read() on the connection
+                            return false;
                         return true;
                     }
                 }
+                if (_currentChunk.size == 0) // We only needed to read the last \r\n, there is not more body to collect
+                    return true;
                 // Keep reading if we still haven't finished reading the chunk
                 if (_payload.size() - _currentChunk.start < _currentChunk.size)
                     return false;
@@ -321,7 +327,6 @@ int        Request::parse(void)
                 _currentChunk.start += _currentChunk.size + LINE_DELIMITER.size();
             }
             return false;
-            
         }
         else
         {
@@ -334,23 +339,24 @@ int        Request::parse(void)
     return true;
 }
 
- void                                Request::appendToPayload(char *str, size_t size)
- {
+void Request::appendToPayload(char *str, size_t size)
+{
     _payload.append(str, size);
- }
+}
 
-
-std::ostream& operator<<(std::ostream& os, Request const& r) {
+std::ostream &operator<<(std::ostream &os, Request const &r)
+{
     os << std::setw(10) << "Method:    \"" << r.getMethod() << '"' << "\n";
     os << std::setw(10) << "URI:       \"" << r.getUri() << '"' << "\n";
     os << std::setw(10) << "Version:   \"" << r.getVersion() << '"' << "\n";
-    os << std::setw(10) << "Headers:   " << "\n";
+    os << std::setw(10) << "Headers:   "
+       << "\n";
     print_headers(r.getHeaders());
     os << std::setw(10) << "Body:      \"" << r.getBody() << '"' << "\n";
     return os;
 }
 
-Server *			Request::findServer(void)
+Server *Request::findServer(void)
 {
     std::vector<Server *> candidates = *_socket->get_servers();
     std::vector<Server *> results;
@@ -388,7 +394,6 @@ Server *			Request::findServer(void)
     if (results.size() > 1)
         candidates = results;
 
-
     std::map<std::string, std::string>::const_iterator host_it = headers.find("host");
     if (host_it == headers.end())
         host_it = headers.find("Host");
@@ -414,7 +419,7 @@ Server *			Request::findServer(void)
     {
         size_t longestMatch = 0; // store the longest match yet for this server.
         // Iterate over each server_name
-        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it++)
         {
             // Check if the server_name starts with a '*', ignore otherwise
             if (name_it->at(0) != '*')
@@ -449,14 +454,14 @@ Server *			Request::findServer(void)
     // If we have a winner returns it, otherwise forget the previous part and start over with the trailing matches.
     if (results.size() == 1)
         return results[0];
-    
+
     // 4. server_name trailing * match
     results.clear();
     matches.clear();
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
         size_t longestMatch = 0;
-        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it ++)
+        for (std::vector<std::string>::const_iterator name_it = (*it)->server_names.begin(); name_it < (*it)->server_names.end(); name_it++)
         {
             if (name_it->at(name_it->size() - 1) != '*')
                 continue;
@@ -483,7 +488,7 @@ Server *			Request::findServer(void)
     }
     if (results.size() == 1)
         return results[0];
-    
+
     // If no server is found, fallback to the default server.
     return candidates.front();
 }
