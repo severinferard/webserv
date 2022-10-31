@@ -367,6 +367,7 @@ void Client::_handleCgi(void)
         _setCallback(_cgi_stdin_fd, &Client::_onReadyToWriteCgi, POLLOUT);
         _setCallback(_file_fd, &Client::_onReadyToReadCgi, POLLIN);
     }
+    printf("Afterr starting CGI\n");
 }
 
 int Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
@@ -522,7 +523,7 @@ void Client::_onReadyToWriteCgi(void)
 
     write(_cgi_stdin_fd, _request.body.c_str(), size);
     _request.body.erase(0, size);
-    // printf("%ld\n", _request.body.size());
+    printf("%ld\n", _request.body.size());
     if (!_request.body.empty())
         return;
     close(_cgi_stdin_fd);
@@ -616,6 +617,7 @@ void Client::_onHttpError(const HttpError &e)
 {
     error_page_t errorPage;
     _clearCallback(_file_fd);
+    _clearCallback(_cgi_stdin_fd);
     _response.clearBody();
     _keepAlive = false;
     WARNING("HTTP Error: %d %s", e.status, Response::HTTP_STATUS[e.status].c_str());
