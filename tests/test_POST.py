@@ -66,6 +66,7 @@ def test_POST_with_content_length_too_short_check_value():
     pretty_print_response(response)
     assert response.content.decode() == "Seriously,"
 
+@pytest.mark.skipif(SKIP_LONGER_TESTS, reason="Too long... Must be tested during correction")
 @pytest.mark.timeout(REQUEST_MAX_TIMEOUT)
 def test_POST_with_content_length_too_long():
     headers = {}

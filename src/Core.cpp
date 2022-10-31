@@ -76,6 +76,7 @@
             try {
                 now = time(NULL);
                 ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
+                printf("pollfds %ld  ready %d\n", _pollfds.size(), ready);
                 (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
                 {
