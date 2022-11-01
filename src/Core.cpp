@@ -67,38 +67,33 @@
         int                 ready;
         Socket              *sock;
         Client              *client;
-        time_t              now;
+        // time_t              now;
 
         _startListeningSockets();
 
         while (true)
         {
             try {
-                now = time(NULL);
+                // now = time(NULL);
                 ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
-                printf("pollfds %ld  ready %d\n", _pollfds.size(), ready);
+                // printf("pollfds %ld  ready %d\n", _pollfds.size(), ready);
                 (void)ready;
                 for (size_t i = 0; i < _pollfds.size(); i++)
                 {
+                    if (!_pollfds[i].revents)
+                            continue;
                     if ((sock = _getListeningSocket(_pollfds[i].fd)))
                     {
-                        if (!_pollfds[i].revents)
-                            continue;
                         client = sock->acceptConnection(this);
                     }
                     else
                     {
                         client = _findClient(_pollfds[i].fd);
-                        if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
-                            client->timeout();
-                        if (_pollfds[i].revents)
-                        {
-                            client = _findClient(_pollfds[i].fd);
-                            if (client->resume(_pollfds[i].fd))
-                                delete client;
-                        }
+                        if (client->resume(_pollfds[i].fd))
+                            delete client;
                     }
                 }
+                // printf("done checking poll\n");
             }
             catch (std::exception &e)
             {

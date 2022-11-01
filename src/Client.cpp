@@ -404,19 +404,29 @@ void Client::_onReadyToReadRequest(void)
     std::string method;
     std::vector<std::string> allowedMethods;
 
-    char buff[1000000];
+    // char buff[8300000];
+    char buff[30000];
+
     int ret;
 
+    // printf("before recv\n");
     ret = recv(connection_fd, buff, sizeof(buff), 0);
+    // printf("after recv\n");
+
     if (ret <= 0)
         throw ConnectionResetByPeerException();
     else
     {
         // Append what we just read to the request payload
         _request.appendToPayload(buff, ret);
+        // printf("before parse\n");
         // Parse what we already have off the request and return now if we have more to read
-        if (!_request.parse())
+        if (!_request.parse()) {
+            // printf("after parse\n");
             return;
+        }
+    // printf("after parse\n");
+
     }
     _clearCallback(connection_fd);
     _status = STATUS_PROCESSING;
