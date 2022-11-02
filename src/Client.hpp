@@ -64,6 +64,7 @@ private:
 	std::string _cgiPayload;
 	std::map<int, callback_t> _callbacks;
 	struct timeval _t0;
+	bool test;
 
 	int __log_fd;
 	int _file_fd;

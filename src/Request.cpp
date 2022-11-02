@@ -204,7 +204,6 @@ void Request::validate(std::vector<std::string> lines, size_t headerLineCount)
             return;
         }
 
-
         // Read the Content-Length and check if it's valid
         char *end;
         _contentLength = strtoul(headers["content-length"].c_str(), &end, 10);
@@ -293,47 +292,43 @@ int Request::parse(void)
 
         if (_chunked)
         {
-            // Read until we have at least 1 complete line with \r\n
-            while (isLineComplete(_payload))
+            if (_payload.size() >= 5 && _payload.substr(_payload.size() - 5) == "0\r\n\r\n")
             {
-                //printf("chunked _payload %s\n", _payload.c_str());
-                // Read the chunk size
-                if (!_currentChunk.hasSize)
+                printf("found chunked end\n");
+                // std::vector<std::string> chunks = splitstr(_payload, "\r\n");
+                std::string sizePart = _payload.substr(0, 20);
+                int chunkSize = strtol(sizePart.c_str(), NULL, 16);
+                size_t i = 0;
+                printf("chunksize %d\n", chunkSize);
+                while (chunkSize > 0)
                 {
-                    //printf("here\n");
-                    std::stringstream ss;
-                    std::string line = splitstr(_payload, LINE_DELIMITER)[0];
-                    ss << line;
-                    //printf("line %s\n", line.c_str());
-                    ss >> std::hex >> _currentChunk.size;
-                    //printf("size %ld\n", _currentChunk.size);
-                    if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
-                        throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-                    if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_server->client_max_body_size)
-                        throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
-                    _currentChunk.hasSize = true;
-                    _payload = _payload.substr(line.size() + 2);
-                    // Stop reading if the chunk is empty
-                    if (_currentChunk.size == 0)
-                    {
-                        _contentLength = body.size(); // used for CGI
-                        _currentChunk.hasSize = true;
-                        if (_payload.size() < 2) // check whether the last \r\n have alraedy been read, otherwise return false to trigger one last read() on the connection
-                            return false;
-                        return true;
-                    }
+                    i = _payload.find("\r\n", i) + 2;
+                    body.append(_payload, i, chunkSize);
+                    // body += _payload.substr(i, chunkSize);
+                    i += chunkSize + 2;
+                    sizePart = _payload.substr(i, 20);
+                    chunkSize = strtol(sizePart.c_str(), NULL, 16);
+                    if (chunkSize == 0)
+                        break;
                 }
-                if (_currentChunk.size == 0) // We only needed to read the last \r\n, there is not more body to collect
-                    return true;
-                // Keep reading if we still haven't finished reading the chunk
-                if (_payload.size() < _currentChunk.size)
-                    return false;
-                // Else append the current chunk to the body of the request
-                //printf("append %s\n", _payload.substr(0, _currentChunk.size).c_str());
-                body.append(_payload.substr(0, _currentChunk.size));
-                _currentChunk.hasSize = false;
-                _payload = _payload.substr(_currentChunk.size + 2);
+                // printf("%s\n", chunks[0].c_str());
+                // while (i < chunks.size())
+                // {
+                //     int chunkSize = strtol(chunks[i].c_str(), NULL, 16);
+                //     // printf("%d %ld\n", chunkSize, chunks[i + 1].size());
+                //     body.append(chunks[i + 1], 0, chunkSize);
+                //     // printf("body after %s\n", body.c_str());
+                //     i += 2;
+                // }
+                if (_hasLocation && _location.client_max_body_size >= 0 && body.size() > (size_t)_location.client_max_body_size)
+                    throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
+                if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() > (size_t)_server->client_max_body_size)
+                    throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
+                _contentLength = body.size(); // used for CGI
+                // printf("%ld\n", chunks.size());
+                return true;
             }
+            // printf("Not end yet\n");
             return false;
         }
         else
@@ -500,3 +495,49 @@ Server *Request::findServer(void)
     // If no server is found, fallback to the default server.
     return candidates.front();
 }
+
+// if (_chunked)
+// {
+//     // Read until we have at least 1 complete line with \r\n
+//     while (isLineComplete(_payload))
+//     {
+//         //printf("chunked _payload %s\n", _payload.c_str());
+//         // Read the chunk size
+//         if (!_currentChunk.hasSize)
+//         {
+//             //printf("here\n");
+//             std::stringstream ss;
+//             std::string line = splitstr(_payload, LINE_DELIMITER)[0];
+//             ss << line;
+//             //printf("line %s\n", line.c_str());
+//             ss >> std::hex >> _currentChunk.size;
+//             //printf("size %ld\n", _currentChunk.size);
+//             if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
+//                 throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
+//             if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_server->client_max_body_size)
+//                 throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
+//             _currentChunk.hasSize = true;
+//             _payload = _payload.substr(line.size() + 2);
+//             // Stop reading if the chunk is empty
+//             if (_currentChunk.size == 0)
+//             {
+//                 _contentLength = body.size(); // used for CGI
+//                 _currentChunk.hasSize = true;
+//                 if (_payload.size() < 2) // check whether the last \r\n have alraedy been read, otherwise return false to trigger one last read() on the connection
+//                     return false;
+//                 return true;
+//             }
+//         }
+//         if (_currentChunk.size == 0) // We only needed to read the last \r\n, there is not more body to collect
+//             return true;
+//         // Keep reading if we still haven't finished reading the chunk
+//         if (_payload.size() < _currentChunk.size)
+//             return false;
+//         // Else append the current chunk to the body of the request
+//         //printf("append %s\n", _payload.substr(0, _currentChunk.size).c_str());
+//         body.append(_payload.substr(0, _currentChunk.size));
+//         _currentChunk.hasSize = false;
+//         _payload = _payload.substr(_currentChunk.size + 2);
+//     }
+//     return false;
+// }
