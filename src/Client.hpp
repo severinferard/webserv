@@ -64,7 +64,10 @@ private:
 	std::string _cgiPayload;
 	std::map<int, callback_t> _callbacks;
 	struct timeval _t0;
-	bool test;
+	FILE *_cgiFileIn;
+	FILE *_cgiFileOut;
+	int _cgiFdIn;
+	int _cgiFdOut;
 
 	int __log_fd;
 	int _file_fd;
@@ -80,7 +83,7 @@ private:
 	void _onReadyToSend();
 	void _onReadyToReadDir();
 	void _onReadyToReadCgi();
-	void _onReadyToWriteCgi();
+	void _onReadyToWriteToCgi();
 	void _onReadyToWriteFile(void);
 	void _onReadyToWriteUploadedFile(void);
 	void _saveNextFile(void);

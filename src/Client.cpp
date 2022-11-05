@@ -286,8 +286,17 @@ int saveStdout;
 
 void Client::_handleCgi(void)
 {
-    // int stdoutLink[2];
-    // int stdinLink[2];
+    _cgiFileIn = tmpfile();
+    _cgiFileOut = tmpfile();
+    _cgiFdIn = fileno(_cgiFileIn);
+    _cgiFdOut = fileno(_cgiFileOut);
+    saveStdin = dup(STDIN_FILENO);
+    saveStdout = dup(STDOUT_FILENO);
+    _setCallback(_cgiFdIn, &Client::_onReadyToWriteToCgi, POLLIN);
+}
+
+void Client::_onReadyToWriteToCgi(void)
+{
     int status;
     pid_t pid;
 
@@ -298,15 +307,9 @@ void Client::_handleCgi(void)
     std::string filepath;
     std::stringstream ss;
 
-    FILE *fIn = tmpfile();
-    FILE *fOut = tmpfile();
-    long fdIn = fileno(fIn);
-    long fdOut = fileno(fOut);
-    saveStdin = dup(STDIN_FILENO);
-    saveStdout = dup(STDOUT_FILENO);
-
-    write(fdIn, _request.body.c_str(), _request.body.size());
-    lseek(fdIn, 0, SEEK_SET);
+    _clearCallback(_cgiFdIn);
+    write(_cgiFdIn, _request.body.c_str(), _request.body.size());
+    lseek(_cgiFdIn, 0, SEEK_SET);
 
     DEBUG("Sending request to CGI");
     if (!pathExist(_location->cgi_pass))
@@ -353,52 +356,26 @@ void Client::_handleCgi(void)
     strVectorToCstrVector(env, cEnv);
     strVectorToCstrVector(args, cArgs);
 
-    // if (pipe(stdoutLink) < 0)
-    //     throw std::runtime_error("Error creating pipe");
-    // if (pipe(stdinLink) < 0)
-    //     throw std::runtime_error("Error creating pipe");
-
     if ((pid = fork()) == -1)
         throw std::runtime_error("Error while calling fork()");
 
     if (pid == 0)
     {
-        dup2(fdIn, STDIN_FILENO);
-        dup2(fdOut, STDOUT_FILENO);
+        dup2(_cgiFdIn, STDIN_FILENO);
+        dup2(_cgiFdOut, STDOUT_FILENO);
         execve(cArgs[0], &cArgs[0], &cEnv[0]);
         // throw std::runtime_error("Execve failed");
     }
     else
     {
-        // waitpid(-1, NULL, 0);
-        // lseek(fdOut, 0, SEEK_SET);
-
-        // int ret = 1;
-        // char buffer[10000];
-        // std::string newBody;
-        // while (ret > 0)
-        // {
-        //     memset(buffer, 0, 10000);
-        //     ret = read(fdOut, buffer, 10000 - 1);
-        //     newBody += buffer;
-        // }
-        // printf("DONE READING %s\n", newBody.c_str());
         _cgi_pid = pid;
-        // // _cgi_stdin_fd = stdinLink[1];
-        _file_fd = fdOut;
-        fclose(fIn);
-        // fclose(fOut);
-        close(fdIn);
+        fclose(_cgiFileIn);
+        close(_cgiFdIn);
         dup2(saveStdin, STDIN_FILENO);
         dup2(saveStdout, STDOUT_FILENO);
-        // lseek(fdOut, 0, SEEK_SET);
-        // // _setCallback(_cgi_stdin_fd, &Client::_onReadyToWriteCgi, POLLOUT);
-        test = false;
-        _setCallback(_file_fd, &Client::_onReadyToReadCgi, POLLIN);
-        // printf("file_fd is %d\n", _file_fd);
-        // printf("Afterr starting CGIfff\n");
+        _setCallback(_cgiFdOut, &Client::_onReadyToReadCgi, POLLOUT);
+        DEBUG("waiting for cgi to finish");
     }
-    // printf("Afterr starting CGI\n");
 }
 
 int Client::_findIndex(std::string dir, std::vector<std::string> const &candidates)
@@ -483,25 +460,6 @@ void Client::_onReadyToReadFile(void)
     }
 }
 
-// void Client::_onReadyToTest(void)
-// {
-//     char buff;
-//     size_t size = recv(connection_fd, &buff, 1, 0);
-//     printf("_onReadyToTest\n");
-//     printf("read %ld\n", size);
-//     if (!size)
-//     {
-//         close(connection_fd);
-//         _clearCallback(connection_fd);
-//         _isClosed = true;
-//         printf("CLOSE\n");
-//     }
-//     else
-//     {
-//         ERROR("ERROR");
-//     }
-// }
-
 void Client::_onReadyToSend(void)
 {
     struct timeval now;
@@ -548,32 +506,10 @@ void Client::_onReadyToSend(void)
     }
 }
 
-void Client::_onReadyToWriteCgi(void)
-{
-    size_t size = _request.body.size() < 5000 ? _request.body.size() : 5000;
-
-    write(_cgi_stdin_fd, _request.body.c_str(), size);
-    _request.body.erase(0, size);
-    printf("%ld\n", _request.body.size());
-    if (!_request.body.empty())
-        return;
-    close(_cgi_stdin_fd);
-    _clearCallback(_cgi_stdin_fd);
-    DEBUG("Done writing to CGI");
-}
-
 void Client::_onReadyToReadCgi(void)
 {
     int status;
     pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
-    // if (test == false)
-    // {
-    //     test = true;
-    //     DEBUG("here");
-    // }
-    // DEBUG("here");
-    // printf("===========================================================\n");
-    // printf("finished %d %d\n", finished, _cgi_pid);
     if (finished < 0)
     {
         printf("\n\n\n%sDDDDDDDDDDDDOOOOOOOOOOOOOOOOOOOOOO\n\n\n\n\n", strerror(errno));
@@ -581,15 +517,14 @@ void Client::_onReadyToReadCgi(void)
     }
     if (finished > 0)
     {
-        // printf("===========================================================\n");
         int size = 1;
         char buff[10000];
-        lseek(_file_fd, 0, SEEK_SET);
+        DEBUG("Reading CGI Output");
+        lseek(_cgiFdOut, 0, SEEK_SET);
         while (size)
         {
-            size = read(_file_fd, buff, sizeof(buff) - 1);
+            size = read(_cgiFdOut, buff, sizeof(buff) - 1);
             _cgiPayload.append(buff, size);
-            // printf("read size %d\n", size);
         }
         size_t bodyStart = 0;
         std::vector<std::string> lines;
@@ -618,77 +553,14 @@ void Client::_onReadyToReadCgi(void)
         _response.appendToBody(_cgiPayload.substr(bodyStart, _cgiPayload.size() - bodyStart));
         if (!statusSet)
             _response.setStatus(HTTP_STATUS_SUCCESS);
-        _clearCallback(_file_fd);
-        close(_file_fd);
-        _file_fd = -1; // make sure _clearCallback() is not called with the fd on exit as the fd might have been reattributed by dup2()
-        // printf("close %d\n", _file_fd);
+        _clearCallback(_cgiFdOut);
+        close(_cgiFdOut);
+        fclose(_cgiFileOut);
         _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
-        // dup2(saveStdin, STDIN_FILENO);
-        // dup2(saveStdout, STDOUT_FILENO);
-        // close(_file_fd);
         close(saveStdin);
         close(saveStdout);
         return;
     }
-    // int status;
-    // char buff[100000];
-    // std::vector<std::string> lines;
-    // bool statusSet = false;
-    // size_t bodyStart = 0;
-
-    // lseek(_file_fd, 0, SEEK_SET);
-    // int size = read(_file_fd, buff, sizeof(buff) - 1);
-
-    // printf("read size %d\n", size);
-    // buff[size] = 0;
-    // printf("hello %d %s\n", size, buff);
-    // if (size > 0)
-    // {
-    //     _cgiPayload.append(buff, size);
-    //     return;
-    // }
-    // else if (size < 0)
-    // {
-    //     throw std::runtime_error("Error reading CGI ouput");
-    // }
-    // else
-    // {
-    //     pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
-    //     if (finished > 0)
-    //     {
-
-    //         lines = splitstr(_cgiPayload, "\r\n");
-    //         for (size_t i = 0; i < lines.size(); i++)
-    //         {
-    //             if (lines[i].empty())
-    //                 break;
-    //             bodyStart += lines[i].size() + 2;
-    //             size_t col;
-    //             if ((col = lines[i].find(':')) != std::string::npos)
-    //             {
-    //                 std::string fieldName = lines[i].substr(0, col);
-    //                 std::string value = lines[i].substr(col + 1, lines[i].size() - col - 1);
-    //                 _response.setHeader(fieldName, value);
-    //                 if (fieldName == "Status")
-    //                 {
-    //                     _response.setStatus(atoi(value.c_str()));
-    //                     statusSet = true;
-    //                 }
-    //             }
-    //         }
-    //         bodyStart += 2;
-    //         _response.appendToBody(_cgiPayload.substr(bodyStart, _cgiPayload.size() - bodyStart));
-    //         if (!statusSet)
-    //             _response.setStatus(HTTP_STATUS_SUCCESS);
-    //         _clearCallback(_file_fd);
-    //         close(_file_fd);
-    //         _setCallback(connection_fd, &Client::_onReadyToSend, POLLOUT);
-    //         return;
-    //     }
-    //     else if (finished < 0)
-    //         throw std::runtime_error("waitpid error");
-    //     // if finished == 0, the cgi hasnt finished yet
-    // }
 }
 
 void Client::_onReadyToWriteUploadedFile(void)

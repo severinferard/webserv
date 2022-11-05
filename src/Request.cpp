@@ -234,7 +234,6 @@ int Request::parse(void)
             return false;
         // Parse the first line with method, uri and protocol version and check if it's correct
         requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
-        printf("LINE %ld %ld %d\n", requestLine.size(), lines[0].size(), lines[0] == "\r\n");
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
         _method = requestLine[0];
@@ -273,7 +272,7 @@ int Request::parse(void)
         {
             _headerReceived = true;
             _setHeaders(headers);
-            print_headers(headers);
+            // print_headers(headers);
             validate(lines, headerLineCount);
         }
         else
@@ -294,41 +293,26 @@ int Request::parse(void)
         {
             if (_payload.size() >= 5 && _payload.substr(_payload.size() - 5) == "0\r\n\r\n")
             {
-                printf("found chunked end\n");
-                // std::vector<std::string> chunks = splitstr(_payload, "\r\n");
                 std::string sizePart = _payload.substr(0, 20);
                 int chunkSize = strtol(sizePart.c_str(), NULL, 16);
                 size_t i = 0;
-                printf("chunksize %d\n", chunkSize);
                 while (chunkSize > 0)
                 {
                     i = _payload.find("\r\n", i) + 2;
                     body.append(_payload, i, chunkSize);
-                    // body += _payload.substr(i, chunkSize);
                     i += chunkSize + 2;
                     sizePart = _payload.substr(i, 20);
                     chunkSize = strtol(sizePart.c_str(), NULL, 16);
                     if (chunkSize == 0)
                         break;
                 }
-                // printf("%s\n", chunks[0].c_str());
-                // while (i < chunks.size())
-                // {
-                //     int chunkSize = strtol(chunks[i].c_str(), NULL, 16);
-                //     // printf("%d %ld\n", chunkSize, chunks[i + 1].size());
-                //     body.append(chunks[i + 1], 0, chunkSize);
-                //     // printf("body after %s\n", body.c_str());
-                //     i += 2;
-                // }
                 if (_hasLocation && _location.client_max_body_size >= 0 && body.size() > (size_t)_location.client_max_body_size)
                     throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
                 if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() > (size_t)_server->client_max_body_size)
                     throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
                 _contentLength = body.size(); // used for CGI
-                // printf("%ld\n", chunks.size());
                 return true;
             }
-            // printf("Not end yet\n");
             return false;
         }
         else
