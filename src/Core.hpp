@@ -22,7 +22,9 @@
 // #include "epoll.h"
 
 #define EPOLL_TIMEOUT 1000
-#define CONNECTION_TIMEOUT_DELAY 10000
+#define IDLE_CONNECTION_TIMEOUT 10
+#define REQUEST_TIMEOUT 60
+#define PROCESSING_TIMEOUT 60
 
 class Client;
 class Socket;
@@ -40,6 +42,7 @@ private:
     bool _isListeningSocket(int fd);
     Socket *_getListeningSocket(int fd);
     Client *_findClient(int fd);
+    void _checkTimeouts(void);
 
 public:
     WebservCore();

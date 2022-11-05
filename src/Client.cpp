@@ -4,7 +4,6 @@ char Client::_buffer[BUFFER_SIZE];
 std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES = Client::initDefaultErrorPages();
 
 Client::Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd) : _core(core),
-                                                                                              _status(STATUS_WAIT_FOR_REQUEST),
                                                                                               _request(socket, fd),
                                                                                               _server(NULL),
                                                                                               _location(NULL),
@@ -15,10 +14,10 @@ Client::Client(WebservCore *core, std::string addr, int port, const Socket *sock
                                                                                               addr(addr),
                                                                                               port(port),
                                                                                               socket(socket),
-                                                                                              connection_fd(fd),
-                                                                                              connectionTimestamp(time(NULL))
+                                                                                              connection_fd(fd)
 
 {
+    _setStatus(STATUS_WAIT_FOR_REQUEST);
     // Save te current timestamp to calculate the request time
     gettimeofday(&_t0, NULL);
     // Add a callback on the client socket fd to read the request
@@ -415,6 +414,8 @@ void Client::_onReadyToReadRequest(void)
     char buff[1000000];
     int ret;
 
+    if (status == STATUS_WAIT_FOR_CONNECTION)
+        _setStatus(STATUS_WAIT_FOR_REQUEST);
     ret = recv(connection_fd, buff, sizeof(buff), 0);
     if (ret <= 0)
         throw ConnectionResetByPeerException();
@@ -427,7 +428,7 @@ void Client::_onReadyToReadRequest(void)
             return;
     }
     _clearCallback(connection_fd);
-    _status = STATUS_PROCESSING;
+    _setStatus(STATUS_PROCESSING);
     // If we have read the whole request...
     // store the server and location of the request locally for convinience
     _server = _request.getServer();
@@ -491,9 +492,8 @@ void Client::_onReadyToSend(void)
         _response = Response();
         _request = Request(socket, connection_fd);
         _cgiPayload.clear();
-        _status = STATUS_WAIT_FOR_REQUEST;
         _autoindexNodes.clear();
-        connectionTimestamp = time(NULL);
+        _setStatus(STATUS_WAIT_FOR_CONNECTION);
         DEBUG("Keeping connection opened");
     }
     else
@@ -799,21 +799,38 @@ Server *Client::findServer(void)
     return candidates.front();
 }
 
-void Client::timeout(void)
+void Client::timeoutRequest(void)
 {
-    // Ignore if we're already timedout, and in the process of closing the client to prevent entering an infinite loop.
+    // Ignore if we're already timedout, and in the process of closing the client
+    // to prevent entering an infinite loop.
     if (_timedOut)
         return;
-    if (_request.getPayload().empty())
-    {
-        close(connection_fd);
-        _isClosed = true;
-        return;
-    }
+    return _onHttpError(HttpError(HTTP_STATUS_REQUEST_TIMEOUT));
+}
 
-    WARNING("Timeout");
+void Client::timeoutIdlingConnection(void)
+{
+    if (_timedOut)
+        return;
+    printf("Closing silently\n");
     _timedOut = true;
-    if (_status == STATUS_WAIT_FOR_REQUEST)
-        return _onHttpError(HttpError(HTTP_STATUS_REQUEST_TIMEOUT));
+    close(connection_fd);
+    _clearCallback(connection_fd);
+    _isClosed = true;
+    printf("1\n");
+    return;
+}
+
+void Client::timeoutGateway(void)
+{
+    if (_timedOut)
+        return;
+    _timedOut = true;
     return _onHttpError(HttpError(HTTP_STATUS_GATEWAY_TIMEOUT));
+}
+
+void Client::_setStatus(ClientStatus_t newStatus)
+{
+    statusTimestamp = time(NULL);
+    status = newStatus;
 }

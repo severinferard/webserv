@@ -60,22 +60,67 @@ void WebservCore::_startListeningSockets(void)
     }
 }
 
+void WebservCore::_checkTimeouts(void)
+{
+    time_t now = time(NULL);
+    std::vector<Client *> clients;
+
+    for (std::map<int, Client *>::iterator it = _clients.begin(); it != _clients.end(); it++)
+    {
+        if (std::find(clients.begin(), clients.end(), it->second) == clients.end())
+            clients.push_back(it->second);
+    }
+
+    printf("clients %ld\n", clients.size());
+
+    for (std::vector<Client *>::iterator it = clients.begin(); it != clients.end(); it++)
+    {
+        // printf("checking ?\n");
+        switch ((*it)->status)
+        {
+        case STATUS_WAIT_FOR_CONNECTION:
+            if (difftime(now, (*it)->statusTimestamp) >= IDLE_CONNECTION_TIMEOUT)
+            {
+                (*it)->timeoutIdlingConnection();
+                // printf("timeoutIdlingConnection\n");
+                // delete (*it);
+            }
+            break;
+        case STATUS_WAIT_FOR_REQUEST:
+            if (difftime(now, (*it)->statusTimestamp) >= REQUEST_TIMEOUT)
+                (*it)->timeoutRequest();
+            break;
+        case STATUS_PROCESSING:
+            if (difftime(now, (*it)->statusTimestamp) >= PROCESSING_TIMEOUT)
+                (*it)->timeoutGateway();
+            break;
+        }
+        // printf("after switch\n");
+    }
+}
+
 void WebservCore::run(void)
 {
-
+    static struct timeval lastTimeoutCheck;
+    struct timeval nowMillis;
     int ready;
     Socket *sock;
     Client *client;
-    time_t now;
 
     _startListeningSockets();
-
+    gettimeofday(&lastTimeoutCheck, NULL);
     while (true)
     {
         try
         {
-            now = time(NULL);
             ready = poll(_pollfds.data(), _pollfds.size(), EPOLL_TIMEOUT);
+            gettimeofday(&nowMillis, NULL);
+            if (((nowMillis.tv_sec - lastTimeoutCheck.tv_sec) * 1000000 + nowMillis.tv_usec - lastTimeoutCheck.tv_usec) > 1000000)
+            {
+                gettimeofday(&lastTimeoutCheck, NULL);
+                _checkTimeouts();
+            }
+
             // printf("pollfds %ld  ready %d\n", _pollfds.size(), ready);
             (void)ready;
             for (size_t i = 0; i < _pollfds.size(); i++)
@@ -88,9 +133,6 @@ void WebservCore::run(void)
                 }
                 else
                 {
-                    client = _findClient(_pollfds[i].fd);
-                    if (difftime(now, client->connectionTimestamp) >= CONNECTION_TIMEOUT_DELAY)
-                        client->timeout();
                     if (_pollfds[i].revents)
                     {
                         client = _findClient(_pollfds[i].fd);

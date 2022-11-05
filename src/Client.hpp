@@ -25,7 +25,8 @@
 typedef enum ClientStatus_s
 {
 	STATUS_WAIT_FOR_REQUEST,
-	STATUS_PROCESSING
+	STATUS_PROCESSING,
+	STATUS_WAIT_FOR_CONNECTION
 } ClientStatus_t;
 
 #define BUFFER_SIZE 65139
@@ -53,7 +54,6 @@ class Client
 private:
 	static char _buffer[BUFFER_SIZE];
 	WebservCore *_core;
-	ClientStatus_t _status;
 	Request _request;
 	Response _response;
 	Server *_server;
@@ -100,6 +100,7 @@ private:
 	void _setCallback(int fd, callback_t cb);
 	void _setCallback(int fd, callback_t cb, u_int32_t events);
 	void _clearCallback(int fd);
+	void _setStatus(ClientStatus_t status);
 
 public:
 	const std::string addr;
@@ -107,14 +108,17 @@ public:
 	const Socket *socket;
 	const int connection_fd;
 	static std::map<int, error_page_t> DEFAULT_ERROR_PAGES;
-	time_t connectionTimestamp;
+	time_t statusTimestamp;
+	ClientStatus_t status;
 
 	Client(WebservCore *core, std::string addr, int port, const Socket *socket, int fd);
 	~Client();
 	Server *findServer(void);
 	bool readFileToResponseBody(void);
 	bool resume(int fd);
-	void timeout(void);
+	void timeoutIdlingConnection(void);
+	void timeoutRequest(void);
+	void timeoutGateway(void);
 	static std::map<int, error_page_t> initDefaultErrorPages(void);
 };
 
