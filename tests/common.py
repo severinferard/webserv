@@ -47,5 +47,25 @@ def clean_www_data():
     subprocess.run(f"rm -rf {DATA_DIR / '*'}", shell=True)
     subprocess.run(f"touch {DATA_DIR / '.hidden'}", shell=True)
 
+@pytest.fixture
+def create_tiny_deleteme_file():
+    yield subprocess.run(f"cp -f {WWW_DIR / 'tiny_lorem.txt'} {WWW_DIR / 'tiny_deleteme.txt'}", shell=True)
+
+@pytest.fixture
+def create_short_deleteme_file():
+    yield subprocess.run(f"cp -f {WWW_DIR / 'short_lorem.txt'} {WWW_DIR / 'short_deleteme.txt'}", shell=True)
+
+@pytest.fixture
+def create_medium_deleteme_file():
+    yield subprocess.run(f"cp -f {WWW_DIR / 'medium_lorem.txt'} {WWW_DIR / 'medium_deleteme.txt'}", shell=True)
+
+@pytest.fixture
+def create_long_deleteme_file():
+    yield subprocess.run(f"cp -f {WWW_DIR / 'long_lorem.txt'} {WWW_DIR / 'long_deleteme.txt'}", shell=True)
+
+@pytest.fixture
+def create_deleteme_file():
+    yield subprocess.run(f"echo my fate is to be deleted in a python test... > {WWW_DIR / 'deleteme.txt'}", shell=True)
+
 def random_filename():
     return ''.join(random.choice(string.ascii_lowercase + string.digits) for _ in range(8))

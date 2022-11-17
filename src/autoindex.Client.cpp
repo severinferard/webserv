@@ -28,7 +28,6 @@ static std::string             makeLine(std::string path, dirent &node)
 
     memset(&stats,0,sizeof(stats));
     int ret = stat(fullPath.c_str(), &stats);
-    printf("stat ret %s %s %d\n", path.c_str(), fullPath.c_str(), ret);
     // Format the date in dateBuff[]
     strftime(dateBuff, sizeof(dateBuff), "%d-%b-%Y %H:%M", localtime(&stats.st_mtime));
 

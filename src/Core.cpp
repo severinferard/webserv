@@ -71,18 +71,14 @@ void WebservCore::_checkTimeouts(void)
             clients.push_back(it->second);
     }
 
-    printf("clients %ld\n", clients.size());
-
     for (std::vector<Client *>::iterator it = clients.begin(); it != clients.end(); it++)
     {
-        // printf("checking ?\n");
         switch ((*it)->status)
         {
         case STATUS_WAIT_FOR_CONNECTION:
             if (difftime(now, (*it)->statusTimestamp) >= IDLE_CONNECTION_TIMEOUT)
             {
                 (*it)->timeoutIdlingConnection();
-                // printf("timeoutIdlingConnection\n");
                 // delete (*it);
             }
             break;
@@ -95,7 +91,6 @@ void WebservCore::_checkTimeouts(void)
                 (*it)->timeoutGateway();
             break;
         }
-        // printf("after switch\n");
     }
 }
 
@@ -121,7 +116,6 @@ void WebservCore::run(void)
                 _checkTimeouts();
             }
 
-            // printf("pollfds %ld  ready %d\n", _pollfds.size(), ready);
             (void)ready;
             for (size_t i = 0; i < _pollfds.size(); i++)
             {
@@ -193,7 +187,6 @@ void WebservCore::registerFd(int fd, uint32_t events)
 void WebservCore::registerFd(int fd, uint32_t events, Client *client)
 {
     struct pollfd pfd;
-    // printf("registering %d\n", fd);
     if (hasKey<int, Client *>(_clients, fd))
     {
         for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
@@ -221,7 +214,6 @@ void WebservCore::modifyFd(int fd, uint32_t events)
 
 void WebservCore::unregisterFd(int fd)
 {
-    // printf("removing fd %d\n", fd);
     for (std::vector<struct pollfd>::iterator it = _pollfds.begin(); it < _pollfds.end(); it++)
     {
         if (it->fd == fd)

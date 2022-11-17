@@ -256,7 +256,6 @@ int Request::parse(void)
 
         // Parse headers until empty line or a line not completed
         size_t headerLineCount = 1;
-        // printf("%d %d %s\n", isEmptyLine(lines[headerLineCount]), isLineComplete(lines[headerLineCount]), lines[headerLineCount].c_str());
         while (headerLineCount < lines.size() && !isEmptyLine(lines[headerLineCount]) && isLineComplete(lines[headerLineCount]))
         {
             if (lines[headerLineCount].size() > MAX_HEADER_SIZE)
@@ -485,17 +484,13 @@ Server *Request::findServer(void)
 //     // Read until we have at least 1 complete line with \r\n
 //     while (isLineComplete(_payload))
 //     {
-//         //printf("chunked _payload %s\n", _payload.c_str());
 //         // Read the chunk size
 //         if (!_currentChunk.hasSize)
 //         {
-//             //printf("here\n");
 //             std::stringstream ss;
 //             std::string line = splitstr(_payload, LINE_DELIMITER)[0];
 //             ss << line;
-//             //printf("line %s\n", line.c_str());
 //             ss >> std::hex >> _currentChunk.size;
-//             //printf("size %ld\n", _currentChunk.size);
 //             if (_hasLocation && _location.client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_location.client_max_body_size)
 //                 throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
 //             if ((!_hasLocation || _location.client_max_body_size < 0) && _server->client_max_body_size >= 0 && body.size() + _currentChunk.size > (size_t)_server->client_max_body_size)
@@ -518,7 +513,6 @@ Server *Request::findServer(void)
 //         if (_payload.size() < _currentChunk.size)
 //             return false;
 //         // Else append the current chunk to the body of the request
-//         //printf("append %s\n", _payload.substr(0, _currentChunk.size).c_str());
 //         body.append(_payload.substr(0, _currentChunk.size));
 //         _currentChunk.hasSize = false;
 //         _payload = _payload.substr(_currentChunk.size + 2);

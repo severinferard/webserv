@@ -24,7 +24,6 @@ location_t          Server::findLocation(std::string uri, bool *found)
     location_t match;
     *found = false;
     std::vector<std::string> uriParsed = splitstr(uri, "/");
-    // printf("trying to match %s\n", uri.c_str());
     // PRINT_STRING_VECTOR(uriParsed);
 
     // Check exact matches
@@ -42,7 +41,6 @@ location_t          Server::findLocation(std::string uri, bool *found)
         std::vector<int> macthesLength;
         for (std::vector<location_t>::const_iterator loc_it = config.locations.begin(); loc_it != config.locations.end(); loc_it++)
         {
-            // printf("testing %s\n",  loc_it->path.c_str());
             std::vector<std::string> locPathParsed = splitstr(loc_it->path, "/");
 
             // Ignore if the location is longer than the uri or if the location is marked as PATH_ENDWITH as it will be handled later.
@@ -58,7 +56,6 @@ location_t          Server::findLocation(std::string uri, bool *found)
                 i++;
             // If so store the number of fields to choose the longest match
             macthesLength.push_back(i == locPathParsed.size() ? locPathParsed.size() : 0);
-        //    printf("matches %ld\n", i == locPathParsed.size() ? locPathParsed.size() : 0);
         }
         // Check if we have a match
         std::vector<int>::iterator maxMatch = std::max_element(macthesLength.begin(),macthesLength.end());

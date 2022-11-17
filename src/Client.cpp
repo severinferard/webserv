@@ -121,7 +121,6 @@ void Client::_handleGet(void)
 
 void Client::_handleFormUpload(void)
 {
-    printf("_handleFormUpload\n");
     uploadedFile_t uplaodedFile;
     std::string boundary;
     size_t pos;
@@ -203,7 +202,6 @@ void Client::_handlePost(void)
 {
     std::string filepath;
 
-    printf("POSTTTTT\n");
     // Generate the file path from the configured folder
     if (_location && _location->client_body_temp_path.size())
         filepath = joinPath(_location->client_body_temp_path, getLocationRelativeRoute(*_location, _request.getRoute()));
@@ -395,7 +393,6 @@ bool Client::readFileToResponseBody(void)
 {
     int ret = read(_file_fd, _buffer, BUFFER_SIZE - 1);
     _buffer[ret] = 0;
-    // printf("RET %d\n", ret);
     if (ret > 0)
         _response.appendToBody(std::string(_buffer, ret));
     if (ret < BUFFER_SIZE - 1 || ret <= 0)
@@ -452,7 +449,6 @@ void Client::_onReadyToReadRequest(void)
 
 void Client::_onReadyToReadFile(void)
 {
-    // printf("_onReadyToReadFile %d\n", _file_fd);
     bool empty = readFileToResponseBody();
     if (empty)
     {
@@ -512,7 +508,6 @@ void Client::_onReadyToReadCgi(void)
     pid_t finished = waitpid(_cgi_pid, &status, WNOHANG);
     if (finished < 0)
     {
-        printf("\n\n\n%sDDDDDDDDDDDDOOOOOOOOOOOOOOOOOOOOOO\n\n\n\n\n", strerror(errno));
         sleep(100);
     }
     if (finished > 0)
@@ -565,7 +560,6 @@ void Client::_onReadyToReadCgi(void)
 
 void Client::_onReadyToWriteUploadedFile(void)
 {
-    printf("_onReadyToWriteUploadedFile\n");
     write(_file_fd, _uploadedFiles[0].content.c_str(), _uploadedFiles[0].content.size());
     _clearCallback(_file_fd);
     _uploadedFiles.erase(_uploadedFiles.begin());
@@ -812,12 +806,10 @@ void Client::timeoutIdlingConnection(void)
 {
     if (_timedOut)
         return;
-    printf("Closing silently\n");
     _timedOut = true;
     close(connection_fd);
     _clearCallback(connection_fd);
     _isClosed = true;
-    printf("1\n");
     return;
 }
 
