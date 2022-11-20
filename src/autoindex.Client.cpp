@@ -27,7 +27,7 @@ static std::string             makeLine(std::string path, dirent &node)
     fullPath = joinPath(path, node.d_name);
 
     memset(&stats,0,sizeof(stats));
-    int ret = stat(fullPath.c_str(), &stats);
+    stat(fullPath.c_str(), &stats);
     // Format the date in dateBuff[]
     strftime(dateBuff, sizeof(dateBuff), "%d-%b-%Y %H:%M", localtime(&stats.st_mtime));
 

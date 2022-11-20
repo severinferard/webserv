@@ -25,7 +25,6 @@ Socket::~Socket()
 int    Socket::listen(int backlog)
 {
     struct in_addr host;
-    struct pollfd pfd;
     struct sockaddr_in serv_addr;
 
     _fd =  socket(AF_INET, SOCK_STREAM, 0);

@@ -1,5 +1,21 @@
 #include "Client.hpp"
 
+const char *HTTP_ERRORS_STR[] = {
+	STR(HTTP_STATUS_BAD_REQUEST),
+	STR(HTTP_STATUS_FORBIDDEN),
+	STR(HTTP_STATUS_NOT_FOUND),
+	STR(HTTP_STATUS_METHOD_NOT_ALLOWED),
+	STR(HTTP_STATUS_REQUEST_TIMEOUT),
+	STR(HTTP_STATUS_LENGTH_REQUIRED),
+	STR(HTTP_STATUS_PAYLOAD_TOO_LARGE),
+	STR(HTTP_STATUS_UNSUPPORTED_MEDIA_TYPE),
+	STR(HTTP_STATUS_INTERNAL_SERVER_ERROR),
+	STR(HTTP_STATUS_NOT_IMPLEMENTED),
+	STR(HTTP_STATUS_GATEWAY_TIMEOUT),
+	STR(HTTP_STATUS_VERSION_NOT_SUPPORTED),
+	STR(HTTP_STATUS_REQUEST_HEADER_FIELD_TOO_LARGE),
+};
+
 char Client::_buffer[BUFFER_SIZE];
 std::map<int, error_page_t> Client::DEFAULT_ERROR_PAGES = Client::initDefaultErrorPages();
 
@@ -294,7 +310,6 @@ void Client::_handleCgi(void)
 
 void Client::_onReadyToWriteToCgi(void)
 {
-    int status;
     pid_t pid;
 
     std::vector<std::string> args;
