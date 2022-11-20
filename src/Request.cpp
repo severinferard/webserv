@@ -374,7 +374,6 @@ Server *Request::findServer(void)
             }
         }
     }
-
     if (results.size() == 1)
         return results[0];
     if (results.size() > 1)
@@ -388,6 +387,11 @@ Server *Request::findServer(void)
         return candidates[0];
     std::string hostName = host_it->second;
 
+    // Keep only the host name without the port;
+    std::size_t semiColumn = hostName.find(':');
+    if (semiColumn != std::string::npos) {
+        hostName = hostName.substr(0, semiColumn);
+    }
     // 2. server_name exact match
     for (std::vector<Server *>::const_iterator it = candidates.begin(); it < candidates.end(); it++)
     {
