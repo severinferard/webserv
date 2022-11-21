@@ -389,7 +389,8 @@ Server *Request::findServer(void)
 
     // Keep only the host name without the port;
     std::size_t semiColumn = hostName.find(':');
-    if (semiColumn != std::string::npos) {
+    if (semiColumn != std::string::npos)
+    {
         hostName = hostName.substr(0, semiColumn);
     }
     // 2. server_name exact match
