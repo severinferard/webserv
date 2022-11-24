@@ -183,7 +183,7 @@ def test_GET_line_by_line_timeout_empty():
     conn.connect((HOST, PORT))
     res = conn.recv(1000)
     print(res.decode())
-    assert res.decode().split("\r\n")[0] == ""
+    assert res.decode().split("\r\n")[0] == "" or res.decode().split("\r\n")[0] == 'HTTP/1.1 408 Request Timeout' # depending on wether its the first request on the connection or not
 
 @pytest.mark.skipif(SKIP_LONGER_TESTS, reason="Too long... Must be tested during correction")
 @pytest.mark.timeout(REQUEST_MAX_TIMEOUT)

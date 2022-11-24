@@ -12,7 +12,7 @@ BASE_URL = f"http://{HOST}:{PORT}"
 WWW_DIR = Path(__file__).resolve().parent.parent / 'www/test/pytest'
 DATA_DIR = Path(__file__).resolve().parent.parent / 'www/data'
 SKIP_LONGER_TESTS = True
-REQUEST_MAX_TIMEOUT = 12
+REQUEST_MAX_TIMEOUT = 65
 
 def pretty_print_request(req):
     print('{}\n{}\r\n{}\r\n\r\n{}'.format(

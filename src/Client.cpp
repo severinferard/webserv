@@ -103,7 +103,7 @@ void Client::_handleGet(void)
         // If no index found on the location level, check if the server provides an index that is found in this directory.
         else if (!_server->indexes.empty())
             _file_fd = _findIndex(filepath, _server->indexes);
-        // If no index can be found, check if directory listing is enabled
+        // If no index can be found, check if directory listing is enaclient_body_temp_pathbled
         if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex > 0)))
         {
             // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
@@ -241,6 +241,7 @@ void Client::_handlePost(void)
 
     _response.setStatus(HTTP_STATUS_CREATED);
     _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLOUT);
+    // _response.setStatus(201);
 }
 
 void Client::_handlePut(void)
@@ -278,7 +279,7 @@ void Client::_handleDelete(void)
     if (_location && !_location->root.empty())
         filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
-        filepath = joinPath(_server->root, getLocationRelativeRoute(*_location, _request.getRoute()));
+        filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
 
     // can't do a DELETE request on a directory
@@ -501,7 +502,8 @@ void Client::_onReadyToSend(void)
         _clearCallback(_file_fd);
         _setCallback(connection_fd, &Client::_onReadyToReadRequest, POLLIN);
         _response = Response();
-        _request = Request(socket, connection_fd);
+        if (!_request.expect_100) // Keep the reauest as is if we are waiting for the body
+            _request = Request(socket, connection_fd);
         _cgiPayload.clear();
         _autoindexNodes.clear();
         _setStatus(STATUS_WAIT_FOR_CONNECTION);

@@ -10,7 +10,8 @@ Request::Request(const Socket *sock, int connection_fd) : _fd(sock->get_fd()),
                                                           _server(NULL),
                                                           _hasLocation(false),
                                                           _headerReceived(false),
-                                                          _chunked(false)
+                                                          _chunked(false),
+                                                          expect_100(false)
 {
     // LOG(DebugP, "new request %d", 42);
 }
@@ -215,8 +216,10 @@ void Request::validate(std::vector<std::string> lines, size_t headerLineCount)
             throw HttpError(HTTP_STATUS_PAYLOAD_TOO_LARGE);
     }
 
-    if (hasKey<std::string, std::string>(headers, "expect") && headers["expect"] == "100-continue")
+    if (hasKey<std::string, std::string>(headers, "expect") && headers["expect"] == "100-continue") {
+        expect_100  = true;
         throw Expect100();
+    }
 }
 
 int Request::parse(void)
@@ -234,8 +237,10 @@ int Request::parse(void)
             return false;
         // Parse the first line with method, uri and protocol version and check if it's correct
         requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
+        printf("BEFORE %s\n", lines[0].c_str());
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
+        printf("AFETR\n");
         _method = requestLine[0];
         _uri = requestLine[1];
         _version = requestLine[2];

@@ -52,6 +52,7 @@ class Request
     public:
         std::string			                body;
         std::map<std::string, std::string>  headers;
+        bool                                expect_100;
         Request(const Socket *sock, int connection_fd);
         ~Request();
 
