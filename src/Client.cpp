@@ -267,7 +267,7 @@ void Client::_handlePut(void)
     // POST requests are not 'idempotent' so we append the body to the file
     _file_fd = ::open(filepath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0644);
 
-    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLIN);
+    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLOUT);
     _response.setStatus(HTTP_STATUS_CREATED);
 }
 
@@ -281,17 +281,14 @@ void Client::_handleDelete(void)
     else
         filepath = joinPath(_server->root, _request.getRoute());
     DEBUG("filepath: %s", filepath.c_str());
-
     // can't do a DELETE request on a directory
     if (isDirectory(filepath))
         throw HttpError(HTTP_STATUS_METHOD_NOT_ALLOWED);
 
     if (!pathExist(filepath.c_str()))
         throw HttpError(HTTP_STATUS_NOT_FOUND);
-
     remove(filepath.c_str());
-
-    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLIN);
+    _setCallback(_file_fd, &Client::_onReadyToWriteFile, POLLOUT);
     _response.setStatus(HTTP_STATUS_SUCCESS);
 }
 

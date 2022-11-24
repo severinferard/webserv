@@ -237,10 +237,8 @@ int Request::parse(void)
             return false;
         // Parse the first line with method, uri and protocol version and check if it's correct
         requestLine = splitstr(lines[0].substr(0, lines[0].size() - 2), " ");
-        printf("BEFORE %s\n", lines[0].c_str());
         if (requestLine.size() != 3 || !isValidHttpMethod(requestLine[0]))
             throw HttpError(HTTP_STATUS_BAD_REQUEST);
-        printf("AFETR\n");
         _method = requestLine[0];
         _uri = requestLine[1];
         _version = requestLine[2];
