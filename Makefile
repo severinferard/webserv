@@ -47,7 +47,7 @@ fclean: clean
 re: fclean $(NAME)
 
 test: $(NAME)
-	pytest -v
+	pytest -v -x
 
 create_youpibanane:
 	mkdir -p $(YOUPIBANANE_DIRS)
@@ -59,4 +59,4 @@ install_tests:
 	@echo 'Run: "pip3 install -U pytest && export PATH=$$PATH:/mnt/nfs/homes/$$(whoami)/.local/bin && pip3 install pytest-timeout"'
 
 
-.PHONY: all clean fclean re run test
+.PHONY: all clean fclean re run test create_youpibanane clear_youibanane install_tests

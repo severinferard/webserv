@@ -276,9 +276,9 @@ void Client::_handleDelete(void)
 
     // Generate the file path from the configured root
     if (_location && !_location->root.empty())
-        filepath = joinPath(_location->root, _request.getRoute());
+        filepath = joinPath(_location->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     else
-        filepath = joinPath(_server->root, _request.getRoute());
+        filepath = joinPath(_server->root, getLocationRelativeRoute(*_location, _request.getRoute()));
     DEBUG("filepath: %s", filepath.c_str());
 
     // can't do a DELETE request on a directory
