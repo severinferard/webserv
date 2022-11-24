@@ -104,7 +104,7 @@ void Client::_handleGet(void)
         else if (!_server->indexes.empty())
             _file_fd = _findIndex(filepath, _server->indexes);
         // If no index can be found, check if directory listing is enabled
-        if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex)))
+        if (_file_fd < 0 && ((_location && _location->autoindex > 0) || (((_location && _location->autoindex < 0) || !_location) && _server->autoindex > 0)))
         {
             // if the route does not have a trailing '/', redirect 301 to the same location but with a trailing '/'
             if (_request.getRoute()[_request.getRoute().size() - 1] != '/')
